@@ -1,8 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, Integer, Numeric, SmallInteger, String, Text, Uuid, func
-from sqlalchemy import JSON
+from sqlalchemy import ForeignKey, Integer, JSON, Numeric, SmallInteger, String, Text, Uuid, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
