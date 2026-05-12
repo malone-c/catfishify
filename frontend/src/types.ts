@@ -42,3 +42,10 @@ export interface WikiArticleData {
   categories: string[]
   alt_titles: string[]
 }
+
+export interface LeaderboardEntry {
+  nickname: string
+  score: number
+  time_taken_secs: number
+  completed_at: string
+}

@@ -3,6 +3,7 @@ import type {
   PuzzleDetail,
   ArticleInput,
   ResultCreate,
+  LeaderboardEntry,
   WikiSearchResult,
   WikiArticleData,
 } from './types'
@@ -50,6 +51,9 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+
+  getLeaderboard: (shortId: string): Promise<LeaderboardEntry[]> =>
+    request(`/puzzles/${shortId}/leaderboard`),
 
   searchWikipedia: (q: string): Promise<WikiSearchResult[]> =>
     request(`/wikipedia/search?q=${encodeURIComponent(q)}`),
