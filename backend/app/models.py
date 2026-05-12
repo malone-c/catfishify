@@ -31,7 +31,7 @@ class Result(Base):
     nickname: Mapped[str] = mapped_column(Text, nullable=False)
     score: Mapped[float] = mapped_column(Numeric(4, 1), nullable=False)
     time_taken_secs: Mapped[int] = mapped_column(Integer, nullable=False)
-    answer_details: Mapped[dict] = mapped_column(JSON, nullable=False)
+    answer_details: Mapped[list] = mapped_column(JSON, nullable=False)
     completed_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     puzzle: Mapped["Puzzle"] = relationship("Puzzle", back_populates="results")
