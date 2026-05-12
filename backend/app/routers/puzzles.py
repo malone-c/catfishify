@@ -26,7 +26,7 @@ def create_puzzle(body: PuzzleCreate, db: Session = Depends(get_db)) -> PuzzleCr
         short_id=short_id,
         title=body.title,
         description=body.description,
-        size=body.size,
+        size=len(body.articles),
         articles=[a.model_dump() for a in body.articles],
     )
     db.add(puzzle)
