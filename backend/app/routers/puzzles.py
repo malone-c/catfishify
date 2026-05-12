@@ -53,3 +53,17 @@ def list_puzzles(db: Session = Depends(get_db)) -> list[PuzzleSummary]:
         )
         for puzzle, completions in rows
     ]
+
+
+@router.get("/puzzles/{short_id}")
+def get_puzzle(short_id: str, db: Session = Depends(get_db)) -> PuzzleDetail:
+    puzzle = db.query(Puzzle).filter_by(short_id=short_id).first()
+    if not puzzle:
+        raise HTTPException(status_code=404, detail="Puzzle not found")
+    return PuzzleDetail(
+        short_id=puzzle.short_id,
+        title=puzzle.title,
+        description=puzzle.description,
+        size=puzzle.size,
+        articles=[ArticleForPlayer(categories=a["categories"]) for a in puzzle.articles],
+    )

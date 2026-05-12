@@ -53,3 +53,24 @@ def test_list_puzzles_returns_puzzle_with_zero_completions(client):
     assert p["size"] == 1
     assert p["completions"] == 0
     assert len(p["short_id"]) == 8
+
+
+def test_get_puzzle_strips_wikipedia_title(client):
+    r = client.post("/api/puzzles", json=PUZZLE_PAYLOAD)
+    short_id = r.json()["short_id"]
+    response = client.get(f"/api/puzzles/{short_id}")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["short_id"] == short_id
+    assert data["title"] == "Scientist Quiz"
+    assert data["size"] == 1
+    assert len(data["articles"]) == 1
+    article = data["articles"][0]
+    assert "wikipedia_title" not in article
+    assert "alt_titles" not in article
+    assert article["categories"] == ["1879 births", "Nobel laureates in Physics"]
+
+
+def test_get_puzzle_404_for_unknown_short_id(client):
+    response = client.get("/api/puzzles/notexist")
+    assert response.status_code == 404
