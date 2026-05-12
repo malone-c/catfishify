@@ -33,3 +33,23 @@ def test_create_puzzle_rejects_missing_title(client):
     payload = {**PUZZLE_PAYLOAD, "title": None}
     response = client.post("/api/puzzles", json=payload)
     assert response.status_code == 422
+
+
+def test_list_puzzles_empty(client):
+    response = client.get("/api/puzzles")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_list_puzzles_returns_puzzle_with_zero_completions(client):
+    client.post("/api/puzzles", json=PUZZLE_PAYLOAD)
+    response = client.get("/api/puzzles")
+    assert response.status_code == 200
+    puzzles = response.json()
+    assert len(puzzles) == 1
+    p = puzzles[0]
+    assert p["title"] == "Scientist Quiz"
+    assert p["description"] == "Famous scientists"
+    assert p["size"] == 1
+    assert p["completions"] == 0
+    assert len(p["short_id"]) == 8

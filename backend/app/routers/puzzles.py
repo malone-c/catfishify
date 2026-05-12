@@ -32,3 +32,24 @@ def create_puzzle(body: PuzzleCreate, db: Session = Depends(get_db)) -> PuzzleCr
     db.add(puzzle)
     db.commit()
     return PuzzleCreated(short_id=short_id)
+
+
+@router.get("/puzzles")
+def list_puzzles(db: Session = Depends(get_db)) -> list[PuzzleSummary]:
+    rows = (
+        db.query(Puzzle, func.count(Result.id).label("completions"))
+        .outerjoin(Result, Result.puzzle_id == Puzzle.id)
+        .group_by(Puzzle.id)
+        .order_by(func.count(Result.id).desc())
+        .all()
+    )
+    return [
+        PuzzleSummary(
+            short_id=puzzle.short_id,
+            title=puzzle.title,
+            description=puzzle.description,
+            size=puzzle.size,
+            completions=completions,
+        )
+        for puzzle, completions in rows
+    ]
