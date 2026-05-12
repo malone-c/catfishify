@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { api } from '../api'
 import type { AnswerDetail, PuzzleDetail } from '../types'
 
@@ -47,7 +47,6 @@ function emojiForAnswer(a: AnswerDetail | null): string {
 
 export default function PlayPuzzle() {
   const { shortId } = useParams<{ shortId: string }>()
-  const navigate = useNavigate()
 
   const [puzzle, setPuzzle] = useState<PuzzleDetail | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -63,6 +62,7 @@ export default function PlayPuzzle() {
   const [submittingResult, setSubmittingResult] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -158,6 +158,22 @@ export default function PlayPuzzle() {
     }
   }
 
+  const handleShare = (emojiStr: string, score: number) => {
+    const text = [
+      'Catfishify 🐈',
+      `"${puzzle!.title}"`,
+      `${score} / ${puzzle!.articles.length}`,
+      '',
+      emojiStr,
+      '',
+      `${window.location.origin}/p/${shortId}`,
+    ].join('\n')
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
   if (loadError) {
     return (
       <main style={{ padding: '32px' }}>
@@ -223,6 +239,17 @@ export default function PlayPuzzle() {
         )}
 
         <p style={{ marginTop: 24 }}>
+          <button
+            onClick={() => handleShare(emojiString, score)}
+            style={{
+              padding: '8px 20px', background: 'none', border: '1px solid var(--border)',
+              borderRadius: 6, cursor: 'pointer', font: 'inherit',
+            }}
+          >
+            {copied ? '✓ Copied!' : '📋 Share'}
+          </button>
+        </p>
+        <p style={{ marginTop: 16 }}>
           <Link to={`/p/${shortId}/leaderboard`}>View leaderboard →</Link>
         </p>
         <p style={{ marginTop: 8 }}>
