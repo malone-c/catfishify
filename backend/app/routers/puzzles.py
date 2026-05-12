@@ -40,7 +40,7 @@ def list_puzzles(db: Session = Depends(get_db)) -> list[PuzzleSummary]:
         db.query(Puzzle, func.count(Result.id).label("completions"))
         .outerjoin(Result, Result.puzzle_id == Puzzle.id)
         .group_by(Puzzle.id)
-        .order_by(func.count(Result.id).desc())
+        .order_by(func.count(Result.id).desc(), Puzzle.created_at.desc())
         .all()
     )
     return [

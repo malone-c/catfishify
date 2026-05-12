@@ -1,6 +1,7 @@
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ArticleIn(BaseModel):
@@ -17,8 +18,7 @@ class ArticleForPlayer(BaseModel):
 class PuzzleCreate(BaseModel):
     title: str
     description: str | None = None
-    size: int
-    articles: list[ArticleIn]
+    articles: list[ArticleIn] = Field(min_length=1)
 
 
 class PuzzleCreated(BaseModel):
@@ -42,11 +42,10 @@ class PuzzleDetail(BaseModel):
 
 
 class ResultCreate(BaseModel):
-    nickname: str
-    score: float
-    time_taken_secs: int
-    # per-article outcome, one entry per puzzle article: "correct" | "half" | "wrong" | "skipped"
-    answer_details: list[str]
+    nickname: str = Field(min_length=1, max_length=50)
+    score: float = Field(ge=0)
+    time_taken_secs: int = Field(ge=0)
+    answer_details: list[Literal["correct", "half", "wrong", "skipped"]]
 
 
 class ResultCreated(BaseModel):
