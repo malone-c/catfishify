@@ -167,3 +167,66 @@ def test_leaderboard_ordered_score_desc_then_time_asc(client):
     assert entries[0]["nickname"] == "fast_winner"   # score=3.0, time=45
     assert entries[1]["nickname"] == "slow_winner"   # score=3.0, time=120
     assert entries[2]["nickname"] == "loser"          # score=1.0
+
+
+def test_check_answer_correct(client):
+    r = client.post("/api/puzzles", json=PUZZLE_PAYLOAD)
+    short_id = r.json()["short_id"]
+    response = client.post(
+        f"/api/puzzles/{short_id}/check-answer",
+        json={"article_index": 0, "guess": "Albert Einstein"},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"correct": True}
+
+
+def test_check_answer_wrong(client):
+    r = client.post("/api/puzzles", json=PUZZLE_PAYLOAD)
+    short_id = r.json()["short_id"]
+    response = client.post(
+        f"/api/puzzles/{short_id}/check-answer",
+        json={"article_index": 0, "guess": "Isaac Newton"},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"correct": False}
+
+
+def test_check_answer_accepts_alt_title(client):
+    r = client.post("/api/puzzles", json=PUZZLE_PAYLOAD)
+    short_id = r.json()["short_id"]
+    response = client.post(
+        f"/api/puzzles/{short_id}/check-answer",
+        json={"article_index": 0, "guess": "Einstein"},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"correct": True}
+
+
+def test_check_answer_accepts_typo_within_edit_distance_1(client):
+    r = client.post("/api/puzzles", json=PUZZLE_PAYLOAD)
+    short_id = r.json()["short_id"]
+    # "albert einsten" is edit distance 1 from "albert einstein" (missing 'i')
+    response = client.post(
+        f"/api/puzzles/{short_id}/check-answer",
+        json={"article_index": 0, "guess": "albert einsten"},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"correct": True}
+
+
+def test_check_answer_404_for_unknown_puzzle(client):
+    response = client.post(
+        "/api/puzzles/notexist/check-answer",
+        json={"article_index": 0, "guess": "anything"},
+    )
+    assert response.status_code == 404
+
+
+def test_check_answer_400_for_invalid_article_index(client):
+    r = client.post("/api/puzzles", json=PUZZLE_PAYLOAD)
+    short_id = r.json()["short_id"]
+    response = client.post(
+        f"/api/puzzles/{short_id}/check-answer",
+        json={"article_index": 99, "guess": "anything"},
+    )
+    assert response.status_code == 400

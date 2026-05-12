@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Puzzle, Result
 from app.schemas import (
+    AnswerCheckRequest,
+    AnswerCheckResult,
     ArticleForPlayer,
     LeaderboardEntry,
     PuzzleCreate,
@@ -14,6 +16,7 @@ from app.schemas import (
     ResultCreate,
     ResultCreated,
 )
+from app.services import answer_check
 from app.utils import generate_short_id
 
 router = APIRouter()
@@ -108,3 +111,19 @@ def leaderboard(short_id: str, db: Session = Depends(get_db)) -> list[Leaderboar
         )
         for r in results
     ]
+
+
+@router.post("/puzzles/{short_id}/check-answer")
+def check_answer_endpoint(
+    short_id: str, body: AnswerCheckRequest, db: Session = Depends(get_db)
+) -> AnswerCheckResult:
+    puzzle = db.query(Puzzle).filter_by(short_id=short_id).first()
+    if not puzzle:
+        raise HTTPException(status_code=404, detail="Puzzle not found")
+    if body.article_index < 0 or body.article_index >= len(puzzle.articles):
+        raise HTTPException(status_code=400, detail="Invalid article index")
+    article = puzzle.articles[body.article_index]
+    correct = answer_check.check_answer(
+        body.guess, article["wikipedia_title"], article["alt_titles"]
+    )
+    return AnswerCheckResult(correct=correct)

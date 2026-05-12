@@ -57,3 +57,12 @@ class LeaderboardEntry(BaseModel):
     score: float
     time_taken_secs: int
     completed_at: datetime
+
+
+class AnswerCheckRequest(BaseModel):
+    article_index: int
+    guess: str
+
+
+class AnswerCheckResult(BaseModel):
+    correct: bool
