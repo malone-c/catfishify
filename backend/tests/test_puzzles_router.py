@@ -121,3 +121,49 @@ def test_list_puzzles_ordered_by_completions_desc(client):
     assert puzzles[0]["completions"] == 2
     assert puzzles[1]["short_id"] == short_id_2
     assert puzzles[1]["completions"] == 1
+
+
+def test_leaderboard_returns_empty_list_when_no_results(client):
+    r = client.post("/api/puzzles", json=PUZZLE_PAYLOAD)
+    short_id = r.json()["short_id"]
+    response = client.get(f"/api/puzzles/{short_id}/leaderboard")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_leaderboard_404_for_unknown_puzzle(client):
+    response = client.get("/api/puzzles/notexist/leaderboard")
+    assert response.status_code == 404
+
+
+def test_leaderboard_entry_has_expected_fields(client):
+    r = client.post("/api/puzzles", json=PUZZLE_PAYLOAD)
+    short_id = r.json()["short_id"]
+    client.post(f"/api/puzzles/{short_id}/results", json=RESULT_PAYLOAD)
+    response = client.get(f"/api/puzzles/{short_id}/leaderboard")
+    assert response.status_code == 200
+    entry = response.json()[0]
+    assert entry["nickname"] == "alice"
+    assert entry["score"] == 1.0
+    assert entry["time_taken_secs"] == 60
+    assert "completed_at" in entry
+
+
+def test_leaderboard_ordered_score_desc_then_time_asc(client):
+    r = client.post("/api/puzzles", json={"title": "Q", "size": 3, "articles": [ARTICLE] * 3})
+    short_id = r.json()["short_id"]
+    # Submit three results with distinct score/time combinations
+    client.post(f"/api/puzzles/{short_id}/results", json={
+        "nickname": "slow_winner", "score": 3.0, "time_taken_secs": 120, "answer_details": ["correct"] * 3
+    })
+    client.post(f"/api/puzzles/{short_id}/results", json={
+        "nickname": "fast_winner", "score": 3.0, "time_taken_secs": 45, "answer_details": ["correct"] * 3
+    })
+    client.post(f"/api/puzzles/{short_id}/results", json={
+        "nickname": "loser", "score": 1.0, "time_taken_secs": 10, "answer_details": ["correct", "wrong", "wrong"]
+    })
+    response = client.get(f"/api/puzzles/{short_id}/leaderboard")
+    entries = response.json()
+    assert entries[0]["nickname"] == "fast_winner"   # score=3.0, time=45
+    assert entries[1]["nickname"] == "slow_winner"   # score=3.0, time=120
+    assert entries[2]["nickname"] == "loser"          # score=1.0

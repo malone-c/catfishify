@@ -86,3 +86,25 @@ def submit_result(
     db.add(result)
     db.commit()
     return ResultCreated(id=str(result.id))
+
+
+@router.get("/puzzles/{short_id}/leaderboard")
+def leaderboard(short_id: str, db: Session = Depends(get_db)) -> list[LeaderboardEntry]:
+    puzzle = db.query(Puzzle).filter_by(short_id=short_id).first()
+    if not puzzle:
+        raise HTTPException(status_code=404, detail="Puzzle not found")
+    results = (
+        db.query(Result)
+        .filter(Result.puzzle_id == puzzle.id)
+        .order_by(Result.score.desc(), Result.time_taken_secs.asc())
+        .all()
+    )
+    return [
+        LeaderboardEntry(
+            nickname=r.nickname,
+            score=float(r.score),
+            time_taken_secs=r.time_taken_secs,
+            completed_at=r.completed_at,
+        )
+        for r in results
+    ]
