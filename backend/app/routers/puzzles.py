@@ -67,3 +67,22 @@ def get_puzzle(short_id: str, db: Session = Depends(get_db)) -> PuzzleDetail:
         size=puzzle.size,
         articles=[ArticleForPlayer(categories=a["categories"]) for a in puzzle.articles],
     )
+
+
+@router.post("/puzzles/{short_id}/results", status_code=201)
+def submit_result(
+    short_id: str, body: ResultCreate, db: Session = Depends(get_db)
+) -> ResultCreated:
+    puzzle = db.query(Puzzle).filter_by(short_id=short_id).first()
+    if not puzzle:
+        raise HTTPException(status_code=404, detail="Puzzle not found")
+    result = Result(
+        puzzle_id=puzzle.id,
+        nickname=body.nickname,
+        score=body.score,
+        time_taken_secs=body.time_taken_secs,
+        answer_details=body.answer_details,
+    )
+    db.add(result)
+    db.commit()
+    return ResultCreated(id=str(result.id))

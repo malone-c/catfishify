@@ -74,3 +74,50 @@ def test_get_puzzle_strips_wikipedia_title(client):
 def test_get_puzzle_404_for_unknown_short_id(client):
     response = client.get("/api/puzzles/notexist")
     assert response.status_code == 404
+
+
+RESULT_PAYLOAD = {
+    "nickname": "alice",
+    "score": 1.0,
+    "time_taken_secs": 60,
+    "answer_details": ["correct"],
+}
+
+
+def test_submit_result_returns_201_with_id(client):
+    r = client.post("/api/puzzles", json=PUZZLE_PAYLOAD)
+    short_id = r.json()["short_id"]
+    response = client.post(f"/api/puzzles/{short_id}/results", json=RESULT_PAYLOAD)
+    assert response.status_code == 201
+    assert "id" in response.json()
+
+
+def test_submit_result_404_for_unknown_puzzle(client):
+    response = client.post("/api/puzzles/notexist/results", json=RESULT_PAYLOAD)
+    assert response.status_code == 404
+
+
+def test_list_puzzles_completions_count_increments_on_result_submit(client):
+    r = client.post("/api/puzzles", json=PUZZLE_PAYLOAD)
+    short_id = r.json()["short_id"]
+    client.post(f"/api/puzzles/{short_id}/results", json=RESULT_PAYLOAD)
+    client.post(f"/api/puzzles/{short_id}/results", json=RESULT_PAYLOAD)
+    response = client.get("/api/puzzles")
+    assert response.json()[0]["completions"] == 2
+
+
+def test_list_puzzles_ordered_by_completions_desc(client):
+    r1 = client.post("/api/puzzles", json=PUZZLE_PAYLOAD)
+    r2 = client.post("/api/puzzles", json=PUZZLE_PAYLOAD)
+    short_id_1 = r1.json()["short_id"]
+    short_id_2 = r2.json()["short_id"]
+    # Give puzzle 1 two completions, puzzle 2 one completion
+    client.post(f"/api/puzzles/{short_id_1}/results", json=RESULT_PAYLOAD)
+    client.post(f"/api/puzzles/{short_id_1}/results", json=RESULT_PAYLOAD)
+    client.post(f"/api/puzzles/{short_id_2}/results", json=RESULT_PAYLOAD)
+    response = client.get("/api/puzzles")
+    puzzles = response.json()
+    assert puzzles[0]["short_id"] == short_id_1
+    assert puzzles[0]["completions"] == 2
+    assert puzzles[1]["short_id"] == short_id_2
+    assert puzzles[1]["completions"] == 1
