@@ -6,19 +6,19 @@ TDD throughout: write a failing test first, then make it pass.
 
 ## Phase 1 — Scaffolding
 
-- [ ] Init backend (`uv`, FastAPI, SQLAlchemy, Alembic, pytest, httpx) and frontend (`vite react-ts`, `react-router-dom`)
-- [ ] Configure Vite proxy (`/api` → `localhost:8000`), CORS, `.env.example`
-- [ ] Scaffold directory structure matching README: routers, services, pages, components
-- [ ] Verify both dev servers start cleanly
+- [x] Init backend (`uv`, FastAPI, SQLAlchemy, Alembic, pytest, httpx) and frontend (`vite react-ts`, `react-router-dom`)
+- [x] Configure Vite proxy (`/api` → `localhost:8000`), CORS, `.env.example`
+- [x] Scaffold directory structure matching README: routers, services, pages, components
+- [x] Verify both dev servers start cleanly
 
 ---
 
 ## Phase 2 — Backend: Data & Wikipedia
 
-- [ ] `Puzzle` and `Result` SQLAlchemy models, initial Alembic migration
-- [ ] `generate_short_id()` utility (base62, 8 chars, collision-safe) with tests
-- [ ] Wikipedia service: `search_articles`, `fetch_categories` (strip hidden + eponymous), `fetch_alt_titles` — all tested with mocked HTTP
-- [ ] Answer checker: `normalize` (lowercase, accent strip, bracket removal) + `check_answer` with Levenshtein-1 tolerance — fully unit tested
+- [x] `Puzzle` and `Result` SQLAlchemy models, initial Alembic migration
+- [x] `generate_short_id()` utility (base62, 8 chars, collision-safe) with tests
+- [x] Wikipedia service: `search_articles`, `fetch_categories` (strip hidden + eponymous), `fetch_alt_titles` — all tested with mocked HTTP
+- [x] Answer checker: `normalize` (lowercase, accent strip, bracket removal) + `check_answer` with Levenshtein-1 tolerance — fully unit tested
 
 ---
 
