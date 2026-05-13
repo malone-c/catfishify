@@ -24,9 +24,9 @@ TDD throughout: write a failing test first, then make it pass.
 
 ## Phase 3 — Backend: API Endpoints
 
-- [ ] `POST /api/puzzles`, `GET /api/puzzles` (ordered by completions), `GET /api/puzzles/{short_id}` (titles redacted) — all with TestClient tests
-- [ ] `POST /api/puzzles/{short_id}/results`, `GET /api/puzzles/{short_id}/leaderboard` (score desc, time asc) — with TestClient tests
-- [ ] `GET /api/wikipedia/search`, `GET /api/wikipedia/article` — thin router wrappers over the service layer, with tests
+- [x] `POST /api/puzzles`, `GET /api/puzzles` (ordered by completions), `GET /api/puzzles/{short_id}` (titles redacted) — all with TestClient tests
+- [x] `POST /api/puzzles/{short_id}/results`, `GET /api/puzzles/{short_id}/leaderboard` (score desc, time asc) — with TestClient tests
+- [x] `GET /api/wikipedia/search`, `GET /api/wikipedia/article` — thin router wrappers over the service layer, with tests
 
 ---
 
