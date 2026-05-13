@@ -1,11 +1,10 @@
 providers = ["python"]
 
 [phases.setup]
-nixPkgs = ["python311", "nodejs_20"]
+nixPkgs = ["python311", "nodejs_20", "uv"]
 
 [phases.install]
 cmds = [
-  "pip install uv",
   "(cd backend && uv sync)",
   "(cd frontend && npm ci)"
 ]
