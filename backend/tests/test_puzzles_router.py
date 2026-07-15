@@ -35,6 +35,18 @@ def test_create_puzzle_rejects_missing_title(client):
     assert response.status_code == 422
 
 
+def test_create_puzzle_accepts_up_to_ten_articles(client):
+    payload = {**PUZZLE_PAYLOAD, "articles": [ARTICLE] * 10}
+    response = client.post("/api/puzzles", json=payload)
+    assert response.status_code == 201
+
+
+def test_create_puzzle_rejects_more_than_ten_articles(client):
+    payload = {**PUZZLE_PAYLOAD, "articles": [ARTICLE] * 11}
+    response = client.post("/api/puzzles", json=payload)
+    assert response.status_code == 422
+
+
 def test_list_puzzles_empty(client):
     response = client.get("/api/puzzles")
     assert response.status_code == 200

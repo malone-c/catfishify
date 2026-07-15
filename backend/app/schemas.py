@@ -18,7 +18,7 @@ class ArticleForPlayer(BaseModel):
 class PuzzleCreate(BaseModel):
     title: str
     description: str | None = None
-    articles: list[ArticleIn] = Field(min_length=1)
+    articles: list[ArticleIn] = Field(min_length=1, max_length=10)
 
 
 class PuzzleCreated(BaseModel):

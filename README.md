@@ -23,8 +23,8 @@ Answers match against all redirect / alternative titles, not just the canonical 
 ## Creating a Puzzle
 
 1. Set a title and optional description.
-2. Choose 5 or 10 articles.
-3. Search Wikipedia, preview the categories, confirm each article.
+2. Search Wikipedia and preview the categories for each task.
+3. Add between 1 and 10 tasks, then select done.
 4. Share the generated link.
 
 No account needed.
@@ -86,7 +86,7 @@ Alt titles come from Wikipedia's redirect graph.
 | short_id | VARCHAR(8) | base62, used in URLs |
 | title | TEXT | |
 | description | TEXT | optional |
-| size | SMALLINT | 5 or 10 |
+| size | SMALLINT | 1 to 10 |
 | articles | JSONB | see below |
 | created_at | TIMESTAMPTZ | |
 
