@@ -28,6 +28,17 @@ const leaderboard = [
   { nickname: 'Manta', score: 0, time_taken_secs: 66, completed_at: '2026-07-16T02:10:00Z' },
 ]
 
+const wikipediaResults = [
+  { title: 'Anglerfish', snippet: 'A deep-sea ray-finned fish.' },
+  { title: 'Deep sea fish', snippet: 'Fish that live below the photic zone.' },
+  { title: 'Marine biology', snippet: 'The scientific study of marine life.' },
+  { title: 'Bioluminescence', snippet: 'Light produced by a living organism.' },
+  { title: 'Abyssal zone', snippet: 'A deep layer of the ocean.' },
+  { title: 'Demersal fish', snippet: 'Fish that live near the seabed.' },
+  { title: 'Ocean', snippet: 'A major body of salt water.' },
+  { title: 'Ichthyology', snippet: 'The study of fish.' },
+]
+
 function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
 }
@@ -49,7 +60,7 @@ async function mockApi(page: Page) {
     if (url.pathname.endsWith('/results')) return json(route, { id: 'result-1' }, 201)
     if (url.pathname.endsWith('/leaderboard')) return json(route, leaderboard)
     if (url.pathname === '/api/wikipedia/search') {
-      return json(route, [{ title: 'Anglerfish', snippet: 'A deep-sea ray-finned fish.' }])
+      return json(route, wikipediaResults)
     }
     if (url.pathname === '/api/wikipedia/article') {
       return json(route, {
@@ -111,6 +122,21 @@ test('finishes a puzzle, submits a score, and renders the standings', async ({ p
 
   const answerInput = page.getByRole('combobox', { name: 'Your answer' })
   await answerInput.fill('angler')
+  const searchResults = page.locator('.wikipedia-autocomplete__results')
+  await expect(searchResults).toBeVisible()
+  await expect(searchResults.getByRole('option')).toHaveCount(wikipediaResults.length)
+  const clippingAncestor = await searchResults.evaluate(element => {
+    let ancestor = element.parentElement
+    while (ancestor && ancestor !== document.body) {
+      const style = window.getComputedStyle(ancestor)
+      if ([style.overflow, style.overflowX, style.overflowY].some(value => value === 'hidden' || value === 'clip')) {
+        return ancestor.className
+      }
+      ancestor = ancestor.parentElement
+    }
+    return null
+  })
+  expect(clippingAncestor).toBeNull()
   await page.getByRole('option', { name: /Anglerfish/ }).click()
   await expect(answerInput).toHaveValue('Anglerfish')
   await page.getByRole('button', { name: 'Check answer' }).click()
