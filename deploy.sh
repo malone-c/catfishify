@@ -24,7 +24,18 @@ for _ in {1..20}; do
   fi
   sleep 0.1
 done
-(cd "$services_root" && just start catfishify)
+
+for attempt in {1..5}; do
+  if (cd "$services_root" && just start catfishify); then
+    break
+  fi
+  if [[ "$attempt" -eq 5 ]]; then
+    echo "Catfishify failed to start after $attempt attempts" >&2
+    exit 1
+  fi
+  echo "launchd is still unloading Catfishify; retrying..."
+  sleep 1
+done
 
 for _ in {1..20}; do
   if curl -fsS http://127.0.0.1:8010/api/health >/dev/null 2>&1; then
@@ -34,7 +45,20 @@ for _ in {1..20}; do
 done
 
 curl -fsS http://127.0.0.1:8010/api/health >/dev/null
-curl -fsS "$production_url/api/health" >/dev/null
+
+public_ready=false
+for _ in {1..20}; do
+  if curl -fsS "$production_url/api/health" >/dev/null 2>&1; then
+    public_ready=true
+    break
+  fi
+  sleep 0.5
+done
+if [[ "$public_ready" != true ]]; then
+  echo "Catfishify did not become healthy at $production_url" >&2
+  exit 1
+fi
+
 curl -fsS "$production_url/api/wikipedia/search?q=einstein" \
   | jq -e 'type == "array" and length > 0 and .[0].title == "Albert Einstein"' >/dev/null
 
