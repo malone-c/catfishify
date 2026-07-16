@@ -18,6 +18,12 @@ test('player can solve a page and submit a leaderboard result', async () => {
         articles: [{ categories: ['Marine biology', 'Bioluminescent organisms'] }],
       }), { status: 200, headers: { 'Content-Type': 'application/json' } })
     }
+    if (url.includes('/api/wikipedia/search')) {
+      return new Response(JSON.stringify([{
+        title: 'Anglerfish',
+        snippet: 'A deep-sea <span class="searchmatch">ray-finned fish</span>.',
+      }]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
     if (url.endsWith('/check-answer')) {
       return new Response(JSON.stringify({ correct: true }), {
         status: 200,
@@ -46,8 +52,15 @@ test('player can solve a page and submit a leaderboard result', async () => {
   expect(await screen.findByRole('heading', { name: 'Ocean quiz' })).toBeVisible()
   expect(screen.getByText('Bioluminescent organisms')).toBeVisible()
 
-  await user.type(screen.getByLabelText('Your answer'), 'Anglerfish')
-  await user.click(screen.getByRole('button', { name: 'Check answer' }))
+  const answerInput = screen.getByRole('combobox', { name: 'Your answer' })
+  await user.type(answerInput, 'Angler')
+  expect(await screen.findByText('A deep-sea ray-finned fish.')).toBeVisible()
+
+  await user.keyboard('{Enter}')
+  expect(answerInput).toHaveValue('Anglerfish')
+  expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith('/check-answer'))).toBe(false)
+
+  await user.keyboard('{Enter}')
   expect(await screen.findByText('Correct.')).toBeVisible()
   await user.click(screen.getByRole('button', { name: /See my score/ }))
 

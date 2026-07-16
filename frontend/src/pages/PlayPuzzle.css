@@ -203,6 +203,14 @@
   gap: 8px;
 }
 
+.guess-input-row .wikipedia-autocomplete {
+  --wikipedia-accent: var(--sea);
+  --wikipedia-accent-soft: var(--sea-soft);
+  --wikipedia-border: var(--line-strong);
+  --wikipedia-surface: var(--surface-raised);
+  flex: 1 1 auto;
+}
+
 .guess-input-row input,
 .finish-input-row input {
   width: 100%;
@@ -229,6 +237,11 @@
 .guess-input-row input:disabled {
   color: var(--muted);
   background: var(--canvas);
+}
+
+.guess-input-row .wikipedia-autocomplete__input {
+  padding-right: 48px;
+  padding-left: 44px;
 }
 
 .guess-input-row .button,

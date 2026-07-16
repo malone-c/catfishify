@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError, api } from '../api'
 import { PageError, PageLoading } from '../components/PageState'
+import WikipediaAutocomplete from '../components/WikipediaAutocomplete'
 import {
   clearProgress,
   createProgress,
@@ -380,18 +381,16 @@ export default function PlayPuzzle() {
         <form className={`guess-panel guess-panel--${guessState}`} onSubmit={handleCheck}>
           <label htmlFor="article-guess">Your answer</label>
           <div className="guess-input-row">
-            <input
+            <WikipediaAutocomplete
               id="article-guess"
               ref={inputRef}
               value={guess}
-              onChange={event => {
-                setGuess(event.target.value)
+              onValueChange={value => {
+                setGuess(value)
                 if (guessState === 'wrong' || guessState === 'error') setGuessState('waiting')
               }}
               placeholder="Type the Wikipedia page title…"
               disabled={guessState === 'checking' || guessState === 'correct' || Boolean(revealedAnswer) || revealingAnswer}
-              autoComplete="off"
-              spellCheck="false"
             />
             <button className="button button--primary" type="submit" disabled={!guess.trim() || guessState === 'checking' || guessState === 'correct'}>
               {guessState === 'checking' ? 'Checking…' : 'Check answer'}

@@ -109,7 +109,10 @@ test('finishes a puzzle, submits a score, and renders the standings', async ({ p
   expect(categoryListHeight).toBeLessThanOrEqual(testInfo.project.name === 'mobile' ? 420 : 240)
   await page.screenshot({ path: testInfo.outputPath('play-screen.png'), fullPage: true })
 
-  await page.getByLabel('Your answer').fill('Anglerfish')
+  const answerInput = page.getByRole('combobox', { name: 'Your answer' })
+  await answerInput.fill('angler')
+  await page.getByRole('option', { name: /Anglerfish/ }).click()
+  await expect(answerInput).toHaveValue('Anglerfish')
   await page.getByRole('button', { name: 'Check answer' }).click()
   await expect(page.getByText('Correct.')).toBeVisible()
   await page.getByRole('button', { name: /See my score/ }).click()

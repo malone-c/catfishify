@@ -1,19 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
-import type { ArticleInput, WikiArticleData, WikiSearchResult } from '../types'
+import WikipediaAutocomplete from '../components/WikipediaAutocomplete'
+import type { ArticleInput, WikiArticleData } from '../types'
 import './CreatePuzzle.css'
 
 const MAX_TASKS = 10
-const SEARCH_DELAY_MS = 300
 
 interface PreviewArticle extends WikiArticleData {
   wikipedia_title: string
-}
-
-function plainTextSnippet(snippet: string) {
-  const parsed = new DOMParser().parseFromString(snippet, 'text/html')
-  return parsed.body.textContent ?? ''
 }
 
 export default function CreatePuzzle() {
@@ -23,11 +18,7 @@ export default function CreatePuzzle() {
   const [articles, setArticles] = useState<ArticleInput[]>([])
   const [isAddingTask, setIsAddingTask] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<WikiSearchResult[]>([])
-  const [activeResultIndex, setActiveResultIndex] = useState(-1)
   const [preview, setPreview] = useState<PreviewArticle | null>(null)
-  const [searching, setSearching] = useState(false)
-  const [searchFailed, setSearchFailed] = useState(false)
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [taskError, setTaskError] = useState<string | null>(null)
@@ -35,47 +26,15 @@ export default function CreatePuzzle() {
   const inputRef = useRef<HTMLInputElement>(null)
   const titleRef = useRef<HTMLInputElement>(null)
   const createButtonRef = useRef<HTMLButtonElement>(null)
-  const searchRequestRef = useRef(0)
   const previewRequestRef = useRef(0)
   const previewControllerRef = useRef<AbortController | null>(null)
 
   const atTaskLimit = articles.length === MAX_TASKS
   const canSubmit = Boolean(title.trim() && articles.length > 0 && !isAddingTask && !submitting)
-  const showResults = isAddingTask && searchQuery.trim().length > 1 && !preview && !loadingPreview
-
-  useEffect(() => {
-    if (!isAddingTask || preview || loadingPreview || searchQuery.trim().length < 2) return
-
-    const requestId = ++searchRequestRef.current
-    const controller = new AbortController()
-    const timeout = window.setTimeout(async () => {
-      setSearching(true)
-      setSearchFailed(false)
-      try {
-        const results = await api.searchWikipedia(searchQuery.trim(), controller.signal)
-        if (requestId === searchRequestRef.current) {
-          setSearchResults(results)
-          setActiveResultIndex(results.findIndex(
-            result => !articles.some(article => article.wikipedia_title === result.title),
-          ))
-        }
-      } catch (errorValue) {
-        if (errorValue instanceof DOMException && errorValue.name === 'AbortError') return
-        if (requestId === searchRequestRef.current) {
-          setSearchResults([])
-          setActiveResultIndex(-1)
-          setSearchFailed(true)
-        }
-      } finally {
-        if (requestId === searchRequestRef.current) setSearching(false)
-      }
-    }, SEARCH_DELAY_MS)
-
-    return () => {
-      window.clearTimeout(timeout)
-      controller.abort()
-    }
-  }, [articles, isAddingTask, loadingPreview, preview, searchQuery])
+  const excludedTitles = useMemo(
+    () => articles.map(article => article.wikipedia_title),
+    [articles],
+  )
 
   useEffect(() => () => previewControllerRef.current?.abort(), [])
 
@@ -84,29 +43,19 @@ export default function CreatePuzzle() {
   }, [articles.length, isAddingTask, preview, searchQuery])
 
   const resetTaskSearch = () => {
-    searchRequestRef.current += 1
     previewRequestRef.current += 1
     previewControllerRef.current?.abort()
     setSearchQuery('')
-    setSearchResults([])
-    setActiveResultIndex(-1)
     setPreview(null)
-    setSearching(false)
-    setSearchFailed(false)
     setLoadingPreview(false)
     setTaskError(null)
   }
 
   const handleSearchChange = (query: string) => {
-    searchRequestRef.current += 1
     previewRequestRef.current += 1
     previewControllerRef.current?.abort()
     setSearchQuery(query)
-    setSearchResults([])
-    setActiveResultIndex(-1)
     setPreview(null)
-    setSearching(false)
-    setSearchFailed(false)
     setLoadingPreview(false)
     setTaskError(null)
   }
@@ -119,9 +68,6 @@ export default function CreatePuzzle() {
     const controller = new AbortController()
     previewControllerRef.current = controller
     setSearchQuery(wikiTitle)
-    setSearchResults([])
-    setActiveResultIndex(-1)
-    setSearching(false)
     setLoadingPreview(true)
     setTaskError(null)
     try {
@@ -136,31 +82,6 @@ export default function CreatePuzzle() {
       }
     } finally {
       if (requestId === previewRequestRef.current) setLoadingPreview(false)
-    }
-  }
-
-  const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!showResults || searchResults.length === 0) return
-
-    const availableIndices = searchResults.flatMap((result, index) => (
-      articles.some(article => article.wikipedia_title === result.title) ? [] : [index]
-    ))
-    if (availableIndices.length === 0) return
-    const currentPosition = availableIndices.indexOf(activeResultIndex)
-
-    if (event.key === 'ArrowDown') {
-      event.preventDefault()
-      setActiveResultIndex(availableIndices[(currentPosition + 1) % availableIndices.length])
-    } else if (event.key === 'ArrowUp') {
-      event.preventDefault()
-      const previousPosition = currentPosition <= 0 ? availableIndices.length - 1 : currentPosition - 1
-      setActiveResultIndex(availableIndices[previousPosition])
-    } else if (event.key === 'Enter' && activeResultIndex >= 0) {
-      event.preventDefault()
-      void handleSelectResult(searchResults[activeResultIndex].title)
-    } else if (event.key === 'Escape') {
-      setSearchResults([])
-      setActiveResultIndex(-1)
     }
   }
 
@@ -324,68 +245,16 @@ export default function CreatePuzzle() {
                 <label htmlFor="task-search">Page {articles.length + 1}</label>
                 <span>Search Wikipedia</span>
               </div>
-              <div className="create-combobox">
-                <span className="create-search-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
-                    <path d="m16 16 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                  </svg>
-                </span>
-                <input
-                  id="task-search"
-                  ref={inputRef}
-                  value={searchQuery}
-                  onChange={event => handleSearchChange(event.target.value)}
-                  onKeyDown={handleSearchKeyDown}
-                  placeholder="Start typing a page title…"
-                  autoComplete="off"
-                  role="combobox"
-                  aria-autocomplete="list"
-                  aria-controls="task-search-results"
-                  aria-expanded={showResults}
-                  aria-activedescendant={activeResultIndex >= 0 ? `task-result-${activeResultIndex}` : undefined}
-                  autoFocus={articles.length === 0}
-                />
-                {searching && <span className="create-search-spinner" role="status" aria-label="Searching Wikipedia" />}
-              </div>
-
-              {showResults && (
-                <div className="create-search-results" id="task-search-results" role="listbox">
-                  {searching && searchResults.length === 0 && (
-                    <p className="create-search-message">Searching Wikipedia…</p>
-                  )}
-                  {!searching && searchFailed && (
-                    <p className="create-search-message create-search-error" role="alert">
-                      Search is unavailable right now. Try again.
-                    </p>
-                  )}
-                  {!searching && !searchFailed && searchResults.length === 0 && (
-                    <p className="create-search-message">No matching Wikipedia pages found.</p>
-                  )}
-                  {searchResults.map((result, index) => {
-                    const alreadyAdded = articles.some(article => article.wikipedia_title === result.title)
-                    return (
-                      <button
-                        className={`create-search-result${index === activeResultIndex ? ' is-active' : ''}`}
-                        id={`task-result-${index}`}
-                        role="option"
-                        aria-selected={index === activeResultIndex}
-                        type="button"
-                        key={result.title}
-                        disabled={alreadyAdded}
-                        onMouseEnter={() => setActiveResultIndex(index)}
-                        onClick={() => void handleSelectResult(result.title)}
-                      >
-                        <span className="create-result-title">
-                          {result.title}
-                          {alreadyAdded && <span>Already added</span>}
-                        </span>
-                        <span className="create-result-snippet">{plainTextSnippet(result.snippet)}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
+              <WikipediaAutocomplete
+                id="task-search"
+                ref={inputRef}
+                value={searchQuery}
+                onValueChange={handleSearchChange}
+                onSelect={result => void handleSelectResult(result.title)}
+                placeholder="Start typing a page title…"
+                excludedTitles={excludedTitles}
+                autoFocus={articles.length === 0}
+              />
 
               {loadingPreview && (
                 <div className="create-preview-loading" role="status">
