@@ -13,6 +13,13 @@ test('production serves the app and live Wikipedia search', async ({ page }) => 
   expect(response?.headers()['content-security-policy']).toContain("default-src 'self'")
   await expect(page.getByRole('heading', { name: 'Create your own catfishing games' })).toBeVisible()
 
+  const faviconHref = await page.locator('link[rel="icon"]').getAttribute('href')
+  expect(faviconHref).not.toBeNull()
+  const faviconResponse = await page.request.get(new URL(faviconHref!, liveUrl!).toString())
+  expect(faviconResponse.status()).toBe(200)
+  expect(faviconResponse.headers()['content-type']).toContain('image/svg+xml')
+  expect((await faviconResponse.body()).byteLength).toBeGreaterThan(0)
+
   await page.getByRole('link', { name: /Create a puzzle/ }).first().click()
   const pageInput = page.getByRole('combobox', { name: 'Page 1' })
   await pageInput.fill('einstein')
