@@ -288,16 +288,16 @@ export default function CreatePuzzle() {
           <div className="create-section-heading create-task-heading">
             <span className="create-step-number">2</span>
             <div>
-              <h2 id="puzzle-tasks-heading">Choose the tasks</h2>
-              <p>Add as many as you need, then select done.</p>
+              <h2 id="puzzle-tasks-heading">Choose the pages</h2>
+              <p>Add up to ten Wikipedia pages, then select done.</p>
             </div>
-            <span className="create-task-count" aria-label={`${articles.length} of ${MAX_TASKS} tasks added`}>
+            <span className="create-task-count" aria-label={`${articles.length} of ${MAX_TASKS} pages added`}>
               {articles.length}<span> / {MAX_TASKS}</span>
             </span>
           </div>
 
           {articles.length > 0 && (
-            <ol className="create-task-list" aria-label="Selected tasks">
+            <ol className="create-task-list" aria-label="Selected pages">
               {articles.map((article, index) => (
                 <li className="create-task-card" key={article.wikipedia_title}>
                   <span className="create-task-index" aria-hidden="true">{index + 1}</span>
@@ -321,7 +321,7 @@ export default function CreatePuzzle() {
           {isAddingTask && !atTaskLimit ? (
             <div className="create-task-search">
               <div className="create-search-label-row">
-                <label htmlFor="task-search">Task {articles.length + 1}</label>
+                <label htmlFor="task-search">Page {articles.length + 1}</label>
                 <span>Search Wikipedia</span>
               </div>
               <div className="create-combobox">
@@ -425,7 +425,7 @@ export default function CreatePuzzle() {
                   </div>
                   <div className="create-preview-actions">
                     <button className="create-button create-button-primary" type="button" onClick={handleConfirmTask}>
-                      Confirm task
+                      Confirm page
                     </button>
                     <button className="create-button create-button-quiet" type="button" onClick={resetTaskSearch}>
                       Choose another
@@ -443,26 +443,26 @@ export default function CreatePuzzle() {
               )}
 
               <div className="create-task-actions">
-                <p>{articles.length === 0 ? 'Add at least one task to continue.' : 'You can add another task after confirming this one.'}</p>
+                <p>{articles.length === 0 ? 'Add at least one page to continue.' : 'You can add another page after confirming this one.'}</p>
                 <button
                   className="create-button create-button-secondary"
                   type="button"
                   onClick={handleDoneAdding}
                   disabled={articles.length === 0}
                 >
-                  Done adding tasks
+                  Done adding pages
                 </button>
               </div>
             </div>
           ) : (
             <div className="create-tasks-complete" role="status">
               <div>
-                <strong>{atTaskLimit ? 'Task limit reached' : 'Task list complete'}</strong>
-                <span>{articles.length} {articles.length === 1 ? 'task' : 'tasks'} ready for your puzzle.</span>
+                <strong>{atTaskLimit ? 'Page limit reached' : 'Page list complete'}</strong>
+                <span>{articles.length} {articles.length === 1 ? 'page' : 'pages'} ready for your puzzle.</span>
               </div>
               {!atTaskLimit && (
                 <button className="create-button create-button-secondary" type="button" onClick={handleAddAnother}>
-                  Add another task
+                  Add another page
                 </button>
               )}
             </div>
@@ -478,8 +478,8 @@ export default function CreatePuzzle() {
               : articles.length === 0
                 ? 'Choose at least one Wikipedia page.'
                 : isAddingTask
-                  ? 'Select “Done adding tasks” when your list is ready.'
-                  : `${articles.length} ${articles.length === 1 ? 'task' : 'tasks'} will be included.`}
+                  ? 'Select “Done adding pages” when your list is ready.'
+                  : `${articles.length} ${articles.length === 1 ? 'page' : 'pages'} will be included.`}
           </p>
           <button
             ref={createButtonRef}

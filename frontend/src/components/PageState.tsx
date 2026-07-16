@@ -21,7 +21,7 @@ interface PageErrorProps {
 export function PageError({ title, message, action }: PageErrorProps) {
   return (
     <main className="page-state">
-      <span className="page-state__eyebrow">Something went sideways</span>
+      <span className="page-state__eyebrow">Something went wrong</span>
       <h1>{title}</h1>
       <p role="alert">{message}</p>
       <div className="page-state__actions">

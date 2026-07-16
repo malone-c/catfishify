@@ -181,7 +181,7 @@ export default function PlayPuzzle() {
     if (!puzzle || !shortId || !finalAnswers) return
     const emojiString = finalAnswers.map(emojiForAnswer).join('')
     const text = [
-      'Catfishify 🐈',
+      'Catfishify',
       `“${puzzle.title}”`,
       `${score} / ${puzzle.articles.length}`,
       '',
@@ -224,7 +224,7 @@ export default function PlayPuzzle() {
   if (loadError) {
     return (
       <PageError
-        title={loadError === 'missing' ? 'That puzzle slipped away' : 'We lost the trail'}
+        title={loadError === 'missing' ? 'Puzzle not found' : 'Could not load puzzle'}
         message={loadError === 'missing'
           ? 'The link may be incomplete, or this puzzle no longer exists.'
           : 'Catfishify could not load this puzzle. Check your connection and try again.'}
@@ -235,7 +235,7 @@ export default function PlayPuzzle() {
     )
   }
 
-  if (!puzzle || !progress) return <PageLoading label="Fetching the clues" />
+  if (!puzzle || !progress) return <PageLoading label="Loading puzzle" />
 
   if (isFinished && finalAnswers) {
     const emojiString = finalAnswers.map(emojiForAnswer).join('')
@@ -246,8 +246,8 @@ export default function PlayPuzzle() {
     return (
       <main className="finish-page">
         <section className="finish-hero">
-          <span className="eyebrow">Puzzle complete</span>
-          <h1 ref={finishHeadingRef} tabIndex={-1}>{score === puzzle.articles.length ? 'Clean catch.' : score >= puzzle.articles.length / 2 ? 'Nicely fished.' : 'A slippery one.'}</h1>
+          <span className="eyebrow">Results</span>
+          <h1 ref={finishHeadingRef} tabIndex={-1}>Puzzle complete</h1>
           <p>{puzzle.title}</p>
         </section>
 
@@ -257,9 +257,9 @@ export default function PlayPuzzle() {
             <strong>{score}<small> / {puzzle.articles.length}</small></strong>
           </div>
           <div className="score-card__details">
-            <div><strong>{correctCount}</strong><span>clean catches</span></div>
-            <div><strong>{halfCount}</strong><span>close calls</span></div>
-            <div><strong>{formatDuration(timeTakenSeconds)}</strong><span>on the clock</span></div>
+            <div><strong>{correctCount}</strong><span>correct answers</span></div>
+            <div><strong>{halfCount}</strong><span>half points</span></div>
+            <div><strong>{formatDuration(timeTakenSeconds)}</strong><span>time</span></div>
           </div>
           <div className="score-card__emoji" aria-label="Answer results">{emojiString}</div>
         </section>
@@ -269,7 +269,7 @@ export default function PlayPuzzle() {
             {!submitted ? (
               <>
                 <span className="finish-panel__number">01</span>
-                <h2>Claim your place</h2>
+                <h2>Join the leaderboard</h2>
                 <p>Add a nickname to join this puzzle&apos;s leaderboard.</p>
                 <form onSubmit={handleSubmitResult}>
                   <label htmlFor="nickname">Nickname</label>
@@ -293,7 +293,7 @@ export default function PlayPuzzle() {
               <div className="finish-success" role="status">
                 <span aria-hidden="true">✓</span>
                 <div>
-                  <h2>You&apos;re on the board</h2>
+                  <h2>Score submitted</h2>
                   <p>Your score was submitted as <strong>{nickname.trim()}</strong>.</p>
                 </div>
                 <Link className="button button--primary" to={`/p/${shortId}/leaderboard`}>View leaderboard</Link>
@@ -303,7 +303,7 @@ export default function PlayPuzzle() {
 
           <section className="finish-panel finish-panel--share">
             <span className="finish-panel__number">02</span>
-            <h2>Pass it on</h2>
+            <h2>Share your result</h2>
             <p>Share the result without spoiling any answers.</p>
             <button className="button button--secondary finish-share" type="button" onClick={() => void handleShare()}>
               <span className={`finish-share__icon${shareStatus === 'shared' ? ' is-hidden' : ''}`}><ShareIcon /></span>
@@ -327,7 +327,7 @@ export default function PlayPuzzle() {
     <main className="play-page">
       <header className="play-heading">
         <div>
-          <span className="eyebrow">Now playing</span>
+          <span className="eyebrow">Puzzle</span>
           <h1>{puzzle.title}</h1>
           {puzzle.description && <p>{puzzle.description}</p>}
         </div>
@@ -337,7 +337,7 @@ export default function PlayPuzzle() {
       <section className="game-board">
         <div className="game-progress">
           <div className="game-progress__label">
-            <span>Task {progress.currentIndex + 1}</span>
+            <span>Page {progress.currentIndex + 1}</span>
             <span>{progress.currentIndex + 1} of {puzzle.articles.length}</span>
           </div>
           <ol className="game-progress__track" aria-label="Puzzle progress">
@@ -347,8 +347,8 @@ export default function PlayPuzzle() {
                 key={index}
                 aria-current={index === progress.currentIndex ? 'step' : undefined}
                 aria-label={index < progress.currentIndex
-                  ? `Task ${index + 1}: ${answer === 'correct' ? 'correct' : answer === 'half' ? 'half point' : 'skipped'}`
-                  : index === progress.currentIndex ? `Task ${index + 1}: current` : `Task ${index + 1}: not started`}
+                  ? `Page ${index + 1}: ${answer === 'correct' ? 'correct' : answer === 'half' ? 'half point' : 'skipped'}`
+                  : index === progress.currentIndex ? `Page ${index + 1}: current` : `Page ${index + 1}: not started`}
               >
                 {index < progress.currentIndex ? emojiForAnswer(answer) : index + 1}
               </li>
@@ -360,7 +360,7 @@ export default function PlayPuzzle() {
           <div className="clue-panel__heading">
             <div>
               <span>Wikipedia categories</span>
-              <h2>What page do these belong to?</h2>
+              <h2>Guess the Wikipedia article</h2>
             </div>
             <span className="clue-panel__count">{article.categories.length} clues</span>
           </div>
@@ -376,7 +376,7 @@ export default function PlayPuzzle() {
           ) : (
             <div className="category-empty">
               <span aria-hidden="true">?</span>
-              <p>This page has no usable categories. Take a wild guess or skip it.</p>
+              <p>This page has no usable categories. You can guess or skip it.</p>
             </div>
           )}
         </div>
@@ -408,17 +408,17 @@ export default function PlayPuzzle() {
                 <span aria-hidden="true">↗</span>
                 <div>
                   <strong>The page was {revealedAnswer.title}</strong>
-                  <p>{revealedAnswer.outcome === 'half' ? 'Close call recorded for half a point.' : 'No points this time—one for the memory bank.'}</p>
+                  <p>{revealedAnswer.outcome === 'half' ? 'Half a point recorded.' : 'No points awarded.'}</p>
                 </div>
                 <button className="button button--primary" type="button" onClick={() => advance(revealedAnswer.outcome)}>
-                  {progress.currentIndex === puzzle.articles.length - 1 ? 'See my score' : 'Next task'}
+                  {progress.currentIndex === puzzle.articles.length - 1 ? 'See my score' : 'Next page'}
                   <ArrowIcon />
                 </button>
               </div>
             ) : guessState === 'wrong' ? (
               <div className="guess-message guess-message--wrong">
                 <span aria-hidden="true">×</span>
-                <div><strong>Not that one.</strong><p>Try another answer, take a close call, or move on.</p></div>
+                <div><strong>Incorrect.</strong><p>Try another answer, mark it close enough, or skip this page.</p></div>
               </div>
             ) : guessState === 'error' ? (
               <div className="guess-message guess-message--error" role="alert">
@@ -428,9 +428,9 @@ export default function PlayPuzzle() {
             ) : guessState === 'correct' ? (
               <div className="guess-message guess-message--correct">
                 <span aria-hidden="true">✓</span>
-                <div><strong>Clean catch!</strong><p>That is the page.</p></div>
+                <div><strong>Correct.</strong><p>That is the page.</p></div>
                 <button className="button button--primary" type="button" onClick={() => advance('correct')}>
-                  {progress.currentIndex === puzzle.articles.length - 1 ? 'See my score' : 'Next task'}
+                  {progress.currentIndex === puzzle.articles.length - 1 ? 'See my score' : 'Next page'}
                   <ArrowIcon />
                 </button>
               </div>
@@ -442,11 +442,11 @@ export default function PlayPuzzle() {
             <div className="guess-options">
               {guessState === 'wrong' && (
                 <button className="button button--secondary" type="button" onClick={() => void handleReveal('half')} disabled={revealingAnswer}>
-                  {revealingAnswer ? 'Revealing…' : '🐡 I was close — ½ point'}
+                  {revealingAnswer ? 'Revealing…' : 'Close enough — ½ point'}
                 </button>
               )}
               <button className="button button--quiet" type="button" onClick={() => void handleReveal('skipped')} disabled={revealingAnswer}>
-                {revealingAnswer ? 'Revealing…' : 'Skip this task'}
+                {revealingAnswer ? 'Revealing…' : 'Skip this page'}
               </button>
             </div>
           )}

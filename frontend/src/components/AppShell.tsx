@@ -12,9 +12,9 @@ export default function AppShell() {
             <span>Catfishify</span>
           </Link>
           <nav className="site-nav" aria-label="Main navigation">
-            <NavLink to="/" end>Explore</NavLink>
+            <NavLink to="/" end>Puzzles</NavLink>
             <NavLink className="site-nav__create" to="/create">
-              <span>Build a puzzle</span>
+              <span>Create a puzzle</span>
               <span aria-hidden="true">↗</span>
             </NavLink>
           </nav>
@@ -31,11 +31,12 @@ export default function AppShell() {
             <BrandMark className="site-footer__mark" />
             <div>
               <strong>Catfishify</strong>
-              <span>Wikipedia categories, turned into a game.</span>
+              <span>Create and share Wikipedia category puzzles.</span>
             </div>
           </div>
           <p>
-            Made for curious people. Not affiliated with the Wikimedia Foundation.
+            With thanks to <a href="https://catfishing.net/">catfishing.net</a>, the daily game
+            that inspired this project. Not affiliated with the Wikimedia Foundation.
           </p>
         </div>
       </footer>

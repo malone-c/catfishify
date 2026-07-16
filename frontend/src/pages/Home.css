@@ -47,6 +47,25 @@
   height: 19px;
 }
 
+.home-hero__copy > .home-attribution {
+  max-width: 610px;
+  margin-top: 24px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.home-attribution a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 38%, transparent);
+  text-underline-offset: 3px;
+}
+
+.home-attribution a:hover {
+  text-decoration-color: currentColor;
+}
+
 .home-proof {
   display: flex;
   flex-wrap: wrap;

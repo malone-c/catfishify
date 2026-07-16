@@ -53,9 +53,10 @@ test.beforeEach(async ({ page }) => mockApi(page))
 test('explores puzzles through the shared shell', async ({ page }) => {
   await page.goto('/')
 
-  await expect(page.getByRole('heading', { name: 'Know the page from the clues?' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Create your own catfishing games' })).toBeVisible()
   await expect(page.getByRole('heading', { name: puzzle.title })).toBeVisible()
-  await expect(page.getByRole('link', { name: /Build a puzzle/ }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: /Create a puzzle/ }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'catfishing.net' }).first()).toHaveAttribute('href', 'https://catfishing.net/')
 
   const skipLink = page.getByRole('link', { name: 'Skip to content' })
   const hiddenBox = await skipLink.boundingBox()
@@ -66,19 +67,19 @@ test('explores puzzles through the shared shell', async ({ page }) => {
   await expect(skipLink).toBeVisible()
 })
 
-test('builds a dynamic one-task puzzle from Wikipedia search', async ({ page }) => {
+test('builds a dynamic one-page puzzle from Wikipedia search', async ({ page }) => {
   await page.goto('/create')
-  const firstTask = page.getByRole('combobox', { name: 'Task 1' })
-  await expect(firstTask).toBeFocused()
-  await firstTask.fill('angler')
+  const firstPage = page.getByRole('combobox', { name: 'Page 1' })
+  await expect(firstPage).toBeFocused()
+  await firstPage.fill('angler')
   await page.getByRole('option', { name: /Anglerfish/ }).click()
 
   await expect(page.getByRole('heading', { name: 'Anglerfish' })).toBeVisible()
   await expect(page.getByText('Bioluminescent organisms')).toBeVisible()
-  await page.getByRole('button', { name: 'Confirm task' }).click()
-  await expect(page.getByRole('combobox', { name: 'Task 2' })).toBeFocused()
+  await page.getByRole('button', { name: 'Confirm page' }).click()
+  await expect(page.getByRole('combobox', { name: 'Page 2' })).toBeFocused()
 
-  await page.getByRole('button', { name: 'Done adding tasks' }).click()
+  await page.getByRole('button', { name: 'Done adding pages' }).click()
   await page.getByLabel(/Title/).fill('Deep sea challenge')
   await page.getByRole('button', { name: 'Create puzzle' }).click()
 
@@ -90,7 +91,7 @@ test('finishes a puzzle, submits a score, and renders the standings', async ({ p
   await page.goto(`/p/${puzzle.short_id}`)
   await page.getByLabel('Your answer').fill('Anglerfish')
   await page.getByRole('button', { name: 'Check answer' }).click()
-  await expect(page.getByText('Clean catch!')).toBeVisible()
+  await expect(page.getByText('Correct.')).toBeVisible()
   await page.getByRole('button', { name: /See my score/ }).click()
 
   await expect(page.getByText('Puzzle complete')).toBeVisible()
@@ -98,7 +99,7 @@ test('finishes a puzzle, submits a score, and renders the standings', async ({ p
   await page.screenshot({ path: testInfo.outputPath('finish-screen.png'), fullPage: true })
   await page.getByLabel('Nickname').fill('deepsea')
   await page.getByRole('button', { name: 'Submit score' }).click()
-  await expect(page.getByText("You're on the board")).toBeVisible()
+  await expect(page.getByText('Score submitted')).toBeVisible()
 
   await page.goto(`/p/${puzzle.short_id}/leaderboard`)
   await expect(page.getByRole('heading', { name: puzzle.title })).toBeVisible()

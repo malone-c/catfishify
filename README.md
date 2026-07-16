@@ -6,6 +6,10 @@ Live at [catfishify.cmal.one](https://catfishify.cmal.one).
 
 The home page lists all puzzles ordered by popularity (number of completions).
 
+Catfishify is an unofficial custom-puzzle companion inspired by
+[catfishing.net](https://catfishing.net), the excellent daily Wikipedia category guessing
+game. It is not intended to replace or compete with their game; please play and support it.
+
 ---
 
 ## How to Play
@@ -25,8 +29,8 @@ Answers match against all redirect / alternative titles, not just the canonical 
 ## Creating a Puzzle
 
 1. Set a title and optional description.
-2. Search Wikipedia and preview the categories for each task.
-3. Add between 1 and 10 tasks, then select done.
+2. Search Wikipedia and preview the categories for each page.
+3. Add between 1 and 10 pages, then select done.
 4. Share the generated link.
 
 No account needed.
@@ -124,7 +128,7 @@ Alt titles come from Wikipedia's redirect graph.
 | `POST` | `/api/puzzles` | Create a puzzle |
 | `GET` | `/api/puzzles/{short_id}` | Get puzzle (titles stripped for players) |
 | `POST` | `/api/puzzles/{short_id}/check-answer` | Check a guess without exposing the title |
-| `POST` | `/api/puzzles/{short_id}/reveal-answer` | Reveal a skipped or conceded task |
+| `POST` | `/api/puzzles/{short_id}/reveal-answer` | Reveal a skipped or conceded page |
 | `POST` | `/api/puzzles/{short_id}/results` | Submit result |
 | `GET` | `/api/puzzles/{short_id}/leaderboard` | Leaderboard |
 | `GET` | `/api/wikipedia/search?q=` | Autocomplete |

@@ -41,24 +41,24 @@ test('creator can progressively add a searched page and finish the puzzle', asyn
     </MemoryRouter>,
   )
 
-  const firstTask = screen.getByRole('combobox', { name: 'Task 1' })
-  expect(firstTask).toHaveFocus()
-  await user.type(firstTask, 'Einstein')
+  const firstPage = screen.getByRole('combobox', { name: 'Page 1' })
+  expect(firstPage).toHaveFocus()
+  await user.type(firstPage, 'Einstein')
 
   expect(await screen.findByText('German-born physicist')).toBeVisible()
   await user.click(screen.getByRole('option', { name: /Albert Einstein/ }))
 
   expect(await screen.findByRole('heading', { name: 'Albert Einstein' })).toBeVisible()
   expect(screen.getByText('Nobel laureates in Physics')).toBeVisible()
-  await user.click(screen.getByRole('button', { name: 'Confirm task' }))
+  await user.click(screen.getByRole('button', { name: 'Confirm page' }))
 
-  const secondTask = screen.getByRole('combobox', { name: 'Task 2' })
-  expect(secondTask).toHaveFocus()
-  expect(screen.getByLabelText('1 of 10 tasks added')).toBeVisible()
+  const secondPage = screen.getByRole('combobox', { name: 'Page 2' })
+  expect(secondPage).toHaveFocus()
+  expect(screen.getByLabelText('1 of 10 pages added')).toBeVisible()
 
   await user.type(screen.getByLabelText(/Title/), 'Great scientists')
   expect(screen.getByRole('button', { name: 'Create puzzle' })).toBeDisabled()
-  await user.click(screen.getByRole('button', { name: 'Done adding tasks' }))
+  await user.click(screen.getByRole('button', { name: 'Done adding pages' }))
   await user.click(screen.getByRole('button', { name: 'Create puzzle' }))
 
   expect(await screen.findByText('Puzzle created')).toBeVisible()

@@ -6,7 +6,7 @@ import PlayPuzzle from './PlayPuzzle'
 
 afterEach(() => vi.unstubAllGlobals())
 
-test('player can solve a task and submit a leaderboard result', async () => {
+test('player can solve a page and submit a leaderboard result', async () => {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
     if (url === '/api/puzzles/ocean123') {
@@ -48,16 +48,16 @@ test('player can solve a task and submit a leaderboard result', async () => {
 
   await user.type(screen.getByLabelText('Your answer'), 'Anglerfish')
   await user.click(screen.getByRole('button', { name: 'Check answer' }))
-  expect(await screen.findByText('Clean catch!')).toBeVisible()
+  expect(await screen.findByText('Correct.')).toBeVisible()
   await user.click(screen.getByRole('button', { name: /See my score/ }))
 
   expect(await screen.findByText('Puzzle complete')).toBeVisible()
-  expect(screen.getByRole('heading', { name: 'Clean catch.' })).toHaveFocus()
+  expect(screen.getByRole('heading', { name: 'Puzzle complete' })).toHaveFocus()
   expect(screen.getByLabelText('Final score 1 out of 1')).toBeVisible()
   await user.type(screen.getByLabelText('Nickname'), 'deepsea')
   await user.click(screen.getByRole('button', { name: 'Submit score' }))
 
-  expect(await screen.findByText("You're on the board")).toBeVisible()
+  expect(await screen.findByText('Score submitted')).toBeVisible()
   await waitFor(() => {
     const resultCall = fetchMock.mock.calls.find(([input]) => String(input).endsWith('/results'))
     expect(resultCall).toBeDefined()
@@ -101,7 +101,7 @@ test('skipping reveals the page before the player advances', async () => {
   )
 
   await screen.findByRole('heading', { name: 'Ocean quiz' })
-  await user.click(screen.getByRole('button', { name: 'Skip this task' }))
+  await user.click(screen.getByRole('button', { name: 'Skip this page' }))
 
   expect(await screen.findByText('The page was Anglerfish')).toBeVisible()
   expect(screen.queryByText('Puzzle complete')).not.toBeInTheDocument()

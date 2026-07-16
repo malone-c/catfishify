@@ -35,7 +35,7 @@ export default function Home() {
       .then(setPuzzles)
       .catch(errorValue => {
         if (errorValue instanceof DOMException && errorValue.name === 'AbortError') return
-        setError('We could not reach the puzzle shelf. Check your connection and try again.')
+        setError('We could not load the puzzles. Check your connection and try again.')
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false)
@@ -45,7 +45,7 @@ export default function Home() {
 
   const stats = useMemo(() => ({
     puzzles: puzzles.length,
-    tasks: puzzles.reduce((sum, puzzle) => sum + puzzle.size, 0),
+    pages: puzzles.reduce((sum, puzzle) => sum + puzzle.size, 0),
     plays: puzzles.reduce((sum, puzzle) => sum + puzzle.completions, 0),
   }), [puzzles])
 
@@ -59,23 +59,28 @@ export default function Home() {
     <main className="home-page">
       <section className="home-hero">
         <div className="home-hero__copy">
-          <span className="eyebrow">A sideways Wikipedia game</span>
-          <h1>Know the page from the clues?</h1>
+          <span className="eyebrow">Wikipedia category puzzles</span>
+          <h1>Create your own catfishing games</h1>
           <p>
-            We hide the title and hand you Wikipedia&apos;s strangest categories.
-            Name the article, trust your instincts, and try not to get catfished.
+            Guess the Wikipedia article from its categories. Don’t worry about
+            capitalisation, accents, or anything in brackets.
           </p>
           <div className="home-hero__actions">
             <a className="button button--primary" href="#puzzles">
-              Find a puzzle
+              Browse puzzles
               <ArrowIcon />
             </a>
-            <Link className="button button--secondary" to="/create">Build your own</Link>
+            <Link className="button button--secondary" to="/create">Create a puzzle</Link>
           </div>
+          <p className="home-attribution">
+            Catfishify is inspired by <a href="https://catfishing.net/">catfishing.net</a>,
+            the excellent daily Wikipedia category guessing game. This unofficial project is
+            only for making custom puzzles; please play and support the daily game there.
+          </p>
           <div className="home-proof" aria-label="How Catfishify works">
             <span><strong>01</strong> Read the categories</span>
-            <span><strong>02</strong> Guess the page</span>
-            <span><strong>03</strong> Share your score</span>
+            <span><strong>02</strong> Guess the article</span>
+            <span><strong>03</strong> Share the result</span>
           </div>
         </div>
 
@@ -94,7 +99,7 @@ export default function Home() {
               <span className="clue-card__seal" aria-hidden="true">?</span>
             </div>
             <strong>Nobel laureates in Physics</strong>
-            <p>Which Wikipedia page ties these clues together?</p>
+            <p>Which Wikipedia article is in these categories?</p>
             <div className="clue-card__answer">
               <span>Type your answer</span>
               <span aria-hidden="true">↵</span>
@@ -109,20 +114,20 @@ export default function Home() {
           <span>community puzzles</span>
         </div>
         <div>
-          <strong>{loading ? '—' : stats.tasks}</strong>
-          <span>mystery pages</span>
+          <strong>{loading ? '—' : stats.pages}</strong>
+          <span>Wikipedia pages</span>
         </div>
         <div>
           <strong>{loading ? '—' : stats.plays}</strong>
-          <span>completed games</span>
+          <span>games completed</span>
         </div>
       </section>
 
       <section className="puzzle-shelf" id="puzzles" aria-labelledby="puzzle-shelf-title">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">The puzzle shelf</span>
-            <h2 id="puzzle-shelf-title">Pick your next rabbit hole</h2>
+            <span className="eyebrow">Community puzzles</span>
+            <h2 id="puzzle-shelf-title">Choose a puzzle</h2>
           </div>
           {!loading && !error && puzzles.length > 0 && (
             <p>Ordered by most played</p>
@@ -141,7 +146,7 @@ export default function Home() {
           <div className="shelf-state" role="alert">
             <span className="shelf-state__icon" aria-hidden="true">!</span>
             <div>
-              <h3>The shelf is temporarily out of reach</h3>
+              <h3>Could not load puzzles</h3>
               <p>{error}</p>
             </div>
             <button className="button button--secondary" type="button" onClick={retry}>Try again</button>
@@ -152,10 +157,10 @@ export default function Home() {
           <div className="shelf-state shelf-state--empty">
             <span className="shelf-state__icon" aria-hidden="true">＋</span>
             <div>
-              <h3>There is room for the first puzzle</h3>
-              <p>Choose a theme, collect a few Wikipedia pages, and set the challenge.</p>
+              <h3>No puzzles yet</h3>
+              <p>Choose some Wikipedia pages and create the first puzzle.</p>
             </div>
-            <Link className="button button--primary" to="/create">Build the first puzzle</Link>
+            <Link className="button button--primary" to="/create">Create the first puzzle</Link>
           </div>
         )}
 
@@ -168,9 +173,9 @@ export default function Home() {
                   <span className="puzzle-card__arrow"><ArrowIcon /></span>
                 </div>
                 <h3>{puzzle.title}</h3>
-                <p>{puzzle.description || 'A hand-picked collection of mystery Wikipedia pages.'}</p>
+                <p>{puzzle.description || 'A custom Wikipedia category puzzle.'}</p>
                 <div className="puzzle-card__meta">
-                  <span>{puzzle.size} {puzzle.size === 1 ? 'task' : 'tasks'}</span>
+                  <span>{puzzle.size} {puzzle.size === 1 ? 'page' : 'pages'}</span>
                   <span>{puzzle.completions} {puzzle.completions === 1 ? 'play' : 'plays'}</span>
                 </div>
               </Link>
@@ -181,12 +186,12 @@ export default function Home() {
 
       <section className="home-cta">
         <div>
-          <span className="eyebrow">Make it personal</span>
-          <h2>Your niche deserves a puzzle.</h2>
-          <p>Deep-sea creatures, forgotten monarchs, 2000s indie bands—if it has a Wikipedia page, it can be a clue.</p>
+          <span className="eyebrow">Create a puzzle</span>
+          <h2>Choose the Wikipedia pages</h2>
+          <p>Add up to ten pages, then share the finished puzzle with anyone.</p>
         </div>
         <Link className="button button--primary" to="/create">
-          Start building
+          Create a puzzle
           <ArrowIcon />
         </Link>
       </section>

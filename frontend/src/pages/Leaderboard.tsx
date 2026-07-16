@@ -53,12 +53,12 @@ export default function Leaderboard() {
     setRequestVersion(version => version + 1)
   }
 
-  if (loading) return <PageLoading label="Tallying the scores" />
+  if (loading) return <PageLoading label="Loading leaderboard" />
 
   if (error || !puzzle) {
     return (
       <PageError
-        title={error === 'missing' ? 'No leaderboard here' : 'The scores are out of reach'}
+        title={error === 'missing' ? 'Leaderboard not found' : 'Could not load leaderboard'}
         message={error === 'missing'
           ? 'This puzzle link may be incomplete or no longer available.'
           : 'We could not load the leaderboard. Check your connection and try again.'}
@@ -75,7 +75,7 @@ export default function Leaderboard() {
         <div>
           <span className="eyebrow">Leaderboard</span>
           <h1>{puzzle.title}</h1>
-          <p>{entries.length === 0 ? 'The board is wide open.' : `${entries.length} ${entries.length === 1 ? 'player has' : 'players have'} finished this puzzle.`}</p>
+          <p>{entries.length === 0 ? 'No scores yet.' : `${entries.length} ${entries.length === 1 ? 'player has' : 'players have'} finished this puzzle.`}</p>
         </div>
         <Link className="button button--primary" to={`/p/${shortId}`}>Play the puzzle <span aria-hidden="true">→</span></Link>
       </header>
@@ -83,9 +83,9 @@ export default function Leaderboard() {
       {entries.length === 0 ? (
         <section className="leaderboard-empty">
           <span className="leaderboard-empty__mark" aria-hidden="true">#1</span>
-          <h2>First place is waiting</h2>
-          <p>Complete the puzzle, submit your nickname, and put the first score on the board.</p>
-          <Link className="button button--primary" to={`/p/${shortId}`}>Take the first run</Link>
+          <h2>No scores yet</h2>
+          <p>Complete the puzzle and submit your nickname to add the first score.</p>
+          <Link className="button button--primary" to={`/p/${shortId}`}>Play the puzzle</Link>
         </section>
       ) : (
         <>
@@ -150,7 +150,7 @@ export default function Leaderboard() {
 
       <div className="leaderboard-actions">
         <Link className="button button--quiet" to="/">Browse more puzzles</Link>
-        <Link className="button button--secondary" to="/create">Build your own</Link>
+        <Link className="button button--secondary" to="/create">Create a puzzle</Link>
       </div>
     </main>
   )

@@ -10,12 +10,12 @@ export default function NotFound() {
         <BrandMark />
         <span>4</span>
       </div>
-      <span className="eyebrow">Wrong turn</span>
-      <h1>This page got away.</h1>
-      <p>The link may be mistyped, or the page has wandered somewhere else.</p>
+      <span className="eyebrow">404</span>
+      <h1>Page not found</h1>
+      <p>The link may be mistyped, or the page may no longer exist.</p>
       <div className="not-found-actions">
-        <Link className="button button--primary" to="/">Explore puzzles</Link>
-        <Link className="button button--secondary" to="/create">Build a puzzle</Link>
+        <Link className="button button--primary" to="/">Browse puzzles</Link>
+        <Link className="button button--secondary" to="/create">Create a puzzle</Link>
       </div>
     </main>
   )
