@@ -12,7 +12,7 @@ test('production serves the Arcade and plays Reverse Catfishing', async ({ page 
   expect(response?.status()).toBe(200)
   await expect(page.getByRole('heading', { name: 'The arcade is being rebuilt around actual difficulty.' })).toBeVisible()
 
-  await page.getByRole('link', { name: /Reverse Catfishing/ }).click()
+  await page.getByRole('link', { name: 'Play Reverse Catfishing' }).click()
   await expect(page).toHaveURL(/\/arcade\/reverse-catfishing$/)
   await expect(page.getByRole('heading', { name: 'Name the category.' })).toBeVisible()
 
