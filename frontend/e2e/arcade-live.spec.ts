@@ -10,12 +10,23 @@ test('production serves the Arcade and plays Reverse Catfishing', async ({ page 
 
   const response = await page.goto(new URL('/arcade', liveUrl!).toString())
   expect(response?.status()).toBe(200)
-  await expect(page.getByRole('heading', { name: 'Eight ways to get catfished.' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'The arcade is being rebuilt around actual difficulty.' })).toBeVisible()
 
   await page.getByRole('link', { name: /Reverse Catfishing/ }).click()
   await expect(page).toHaveURL(/\/arcade\/reverse-catfishing$/)
-  await expect(page.getByText('Callisto (moon)')).toBeVisible()
-  await page.getByRole('button', { name: /Galilean moons/ }).click()
-  await expect(page.getByText('Category caught.')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Name the category.' })).toBeVisible()
+
+  const pageRows = page.locator('.reverse-live-pages li')
+  await expect(pageRows.first()).toBeVisible({ timeout: 20_000 })
+  expect(await pageRows.count()).toBeGreaterThanOrEqual(5)
+  expect(await pageRows.count()).toBeLessThanOrEqual(20)
+
+  await page.getByRole('textbox', { name: 'Category name' }).fill('not a wikipedia category 99118')
+  await page.getByRole('button', { name: 'Submit guess' }).click()
+  await expect(page.getByText('Incorrect', { exact: true })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Reveal category and end round' }).click()
+  await expect(page.getByText('Round ended', { exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: /Open category on Wikipedia/ })).toBeVisible()
   expect(pageErrors).toEqual([])
 })

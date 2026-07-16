@@ -1,71 +1,61 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { arcadeModes } from './modes'
 
 export default function ArcadeHub() {
-  const [surprise] = useState(() => arcadeModes[Math.floor(Math.random() * arcadeModes.length)])
+  const reverse = arcadeModes[0]
 
   return (
-    <main className="arcade-hub">
-      <section className="arcade-hero">
+    <main className="arcade-hub arcade-hub--reconsidered">
+      <section className="arcade-hero arcade-hero--reconsidered">
         <div className="arcade-hero__copy">
-          <span className="arcade-kicker">Catfishify design lab</span>
-          <h1>Eight ways to get catfished.</h1>
+          <span className="arcade-kicker">Catfishify experimental games</span>
+          <h1>The arcade is being rebuilt around actual difficulty.</h1>
           <p>
-            Small games about identity, categories, memory, and misdirection. Each experiment
-            keeps the Wikipedia weirdness and changes what your brain has to do with it.
+            The first batch reduced deduction to recognition. Those games have been retired from
+            this index. The surviving experiment uses live Wikipedia data, exposes the complete
+            evidence set, and asks for a typed answer.
           </p>
-          <div className="arcade-hero__actions">
-            <Link className="button button--primary" to={surprise.path}>Surprise me</Link>
-            <a className="button button--secondary" href="#experiments">See every experiment</a>
-          </div>
+          <Link className="button button--primary" to={reverse.path}>Play Reverse Catfishing</Link>
         </div>
 
-        <div className="arcade-hero__specimen" aria-hidden="true">
-          <div className="specimen-orbit specimen-orbit--outer"><span>?</span></div>
-          <div className="specimen-orbit specimen-orbit--inner"><span>≋</span></div>
-          <div className="specimen-core">
-            <span>08</span>
-            <strong>playable<br />experiments</strong>
-          </div>
-        </div>
+        <aside className="arcade-standard" aria-label="Arcade design standard">
+          <span>New standard</span>
+          <ul>
+            <li>No multiple choice</li>
+            <li>No handcrafted answer bank</li>
+            <li>No withheld evidence</li>
+            <li>No difficulty-by-countdown</li>
+          </ul>
+        </aside>
       </section>
 
-      <section className="arcade-index" id="experiments" aria-labelledby="arcade-index-title">
+      <section className="arcade-index" aria-labelledby="arcade-index-title">
         <div className="arcade-section-heading">
           <div>
-            <span className="arcade-kicker">The collection</span>
-            <h2 id="arcade-index-title">Pick a mechanic</h2>
+            <span className="arcade-kicker">Playable now</span>
+            <h2 id="arcade-index-title">One mode survived.</h2>
           </div>
-          <p>No account, no setup, no effect on the main game.</p>
+          <p>Each round is generated from Wikipedia at request time.</p>
         </div>
 
-        <div className="arcade-grid">
-          {arcadeModes.map(mode => (
-            <Link className={`arcade-card arcade-card--${mode.tone}`} key={mode.path} to={mode.path}>
-              <div className="arcade-card__topline">
-                <span>{mode.number}</span>
-                <span>{mode.time}</span>
-              </div>
-              <span className="arcade-card__symbol" aria-hidden="true">{mode.symbol}</span>
-              <h3>{mode.title}</h3>
-              <p>{mode.description}</p>
-              <div className="arcade-card__footer">
-                <span>{mode.mechanic}</span>
-                <span aria-hidden="true">↗</span>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <Link className="arcade-feature" to={reverse.path}>
+          <div className="arcade-feature__topline">
+            <span>{reverse.number}</span>
+            <span>{reverse.time}</span>
+          </div>
+          <div className="arcade-feature__body">
+            <span className="arcade-feature__symbol" aria-hidden="true">{reverse.symbol}</span>
+            <div>
+              <h3>{reverse.title}</h3>
+              <p>{reverse.description}</p>
+            </div>
+          </div>
+          <div className="arcade-feature__footer">
+            <span>{reverse.mechanic}</span>
+            <span aria-hidden="true">Begin ↗</span>
+          </div>
+        </Link>
       </section>
-
-      <aside className="arcade-note">
-        <span className="arcade-note__mark" aria-hidden="true">✦</span>
-        <div>
-          <strong>Experimental on purpose</strong>
-          <p>These modes use a handcrafted starter deck so each loop is immediately playable. The original community puzzle game remains exactly where it was.</p>
-        </div>
-      </aside>
     </main>
   )
 }

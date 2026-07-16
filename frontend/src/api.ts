@@ -6,6 +6,8 @@ import type {
   LeaderboardEntry,
   WikiSearchResult,
   WikiArticleData,
+  ReverseCategoryRound,
+  ReverseCategoryGuessResult,
 } from './types'
 
 const BASE = '/api'
@@ -88,4 +90,19 @@ export const api = {
 
   getWikipediaArticle: (title: string, signal?: AbortSignal): Promise<WikiArticleData> =>
     request(`/wikipedia/article?title=${encodeURIComponent(title)}`, { signal }),
+
+  getReverseCategoryRound: (signal?: AbortSignal): Promise<ReverseCategoryRound> =>
+    request('/arcade/reverse/round', { signal }),
+
+  checkReverseCategory: (roundId: string, guess: string): Promise<ReverseCategoryGuessResult> =>
+    request('/arcade/reverse/check', {
+      method: 'POST',
+      body: JSON.stringify({ round_id: roundId, guess }),
+    }),
+
+  revealReverseCategory: (roundId: string): Promise<{ answer: string }> =>
+    request('/arcade/reverse/reveal', {
+      method: 'POST',
+      body: JSON.stringify({ round_id: roundId }),
+    }),
 }

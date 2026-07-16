@@ -1,6 +1,23 @@
 from unittest.mock import MagicMock, patch
 
-from app.services.wikipedia import fetch_alt_titles, fetch_categories, search_articles
+import pytest
+
+from app.services.wikipedia import (
+    _category_is_lexically_revealed,
+    clear_category_candidate_cache_for_testing,
+    discover_category_round,
+    fetch_alt_titles,
+    fetch_categories,
+    fetch_category_members,
+    search_articles,
+)
+
+
+@pytest.fixture(autouse=True)
+def clear_category_cache():
+    clear_category_candidate_cache_for_testing()
+    yield
+    clear_category_candidate_cache_for_testing()
 
 
 def make_mock_response(json_data: dict) -> MagicMock:
@@ -120,3 +137,177 @@ def test_fetch_alt_titles_returns_empty_when_none():
     with patch("app.services.wikipedia.httpx.get", return_value=mock_response):
         result = fetch_alt_titles("Albert Einstein")
     assert result == []
+
+
+def test_fetch_category_members_returns_complete_namespace_zero_members():
+    first_response = make_mock_response({
+        "continue": {"cmcontinue": "next-page", "continue": "-||"},
+        "query": {
+            "categorymembers": [
+                {"ns": 0, "title": "Galilean moons"},
+                {"ns": 0, "title": "Callisto (moon)"},
+                {"ns": 0, "title": "Europa (moon)"},
+            ]
+        },
+    })
+    second_response = make_mock_response({
+        "query": {
+            "categorymembers": [
+                {"ns": 0, "title": "Ganymede (moon)"},
+                {"ns": 0, "title": "Io (moon)"},
+            ]
+        },
+    })
+
+    with patch("app.services.wikipedia.httpx.get", side_effect=[first_response, second_response]) as mock_get:
+        result = fetch_category_members("Galilean moons")
+
+    assert result == ["Callisto (moon)", "Europa (moon)", "Galilean moons", "Ganymede (moon)", "Io (moon)"]
+    assert mock_get.call_count == 2
+    assert mock_get.call_args_list[0].kwargs["params"]["cmnamespace"] == 0
+    assert mock_get.call_args_list[1].kwargs["params"]["cmcontinue"] == "next-page"
+
+
+def test_discover_category_round_uses_live_categories_and_full_membership():
+    random_pages_response = make_mock_response({
+        "query": {
+            "pages": [
+                {
+                    "title": "Io (moon)",
+                    "categories": [
+                        {"title": "Category:Galilean moons"},
+                        {"title": "Category:Wikipedia articles with identifiers"},
+                    ],
+                }
+            ]
+        }
+    })
+    category_info_response = make_mock_response({
+        "query": {
+            "pages": [
+                {
+                    "title": "Category:Galilean moons",
+                    "categoryinfo": {"size": 4, "pages": 4, "files": 0, "subcats": 0},
+                }
+            ]
+        }
+    })
+    members_response = make_mock_response({
+        "query": {
+            "categorymembers": [
+                {"ns": 0, "title": "Callisto"},
+                {"ns": 0, "title": "Europa"},
+                {"ns": 0, "title": "Ganymede"},
+                {"ns": 0, "title": "Io"},
+            ]
+        }
+    })
+
+    with patch(
+        "app.services.wikipedia.httpx.get",
+        side_effect=[random_pages_response, category_info_response, members_response],
+    ):
+        category, members = discover_category_round(min_pages=4, max_pages=10)
+
+    assert category == "Galilean moons"
+    assert members == ["Callisto", "Europa", "Ganymede", "Io"]
+
+
+def test_discover_category_round_rejects_categories_outside_member_bounds():
+    random_pages_response = make_mock_response({
+        "query": {
+            "pages": [{"title": "Example", "categories": [{"title": "Category:Enormous category"}]}]
+        }
+    })
+    category_info_response = make_mock_response({
+        "query": {
+            "pages": [
+                {
+                    "title": "Category:Enormous category",
+                    "categoryinfo": {"size": 900, "pages": 900, "files": 0, "subcats": 0},
+                }
+            ]
+        }
+    })
+
+    with patch(
+        "app.services.wikipedia.httpx.get",
+        side_effect=[random_pages_response, category_info_response] * 3,
+    ):
+        with pytest.raises(RuntimeError, match="suitable Wikipedia category"):
+            discover_category_round(min_pages=4, max_pages=10)
+
+
+def test_discover_category_round_reuses_other_sized_candidates():
+    random_pages_response = make_mock_response({
+        "query": {
+            "pages": [{
+                "title": "Example",
+                "categories": [
+                    {"title": "Category:First category"},
+                    {"title": "Category:Second category"},
+                ],
+            }]
+        }
+    })
+    category_info_response = make_mock_response({
+        "query": {
+            "pages": [
+                {"title": "Category:First category", "categoryinfo": {"pages": 5}},
+                {"title": "Category:Second category", "categoryinfo": {"pages": 5}},
+            ]
+        }
+    })
+    second_members_response = make_mock_response({
+        "query": {"categorymembers": [
+            {"ns": 0, "title": f"Alpha item {index}"} for index in range(5)
+        ]}
+    })
+    first_members_response = make_mock_response({
+        "query": {"categorymembers": [
+            {"ns": 0, "title": f"Beta item {index}"} for index in range(5)
+        ]}
+    })
+
+    with (
+        patch("app.services.wikipedia.random.shuffle"),
+        patch(
+            "app.services.wikipedia.httpx.get",
+            side_effect=[
+                random_pages_response,
+                category_info_response,
+                second_members_response,
+                first_members_response,
+            ],
+        ) as mock_get,
+    ):
+        first_round = discover_category_round(min_pages=4, max_pages=10)
+        second_round = discover_category_round(min_pages=4, max_pages=10)
+
+    assert first_round[0] == "Second category"
+    assert second_round[0] == "First category"
+    assert mock_get.call_count == 4
+
+
+def test_lexical_reveal_filter_rejects_answers_repeated_across_page_titles():
+    obvious_members = [
+        "1967 Indianapolis 500",
+        "1967 Indiana Hoosiers football team",
+        "1967 Purdue Boilermakers football team",
+        "1967 Ball State Cardinals football team",
+        "1967 Notre Dame Fighting Irish football team",
+    ]
+    inferential_members = [
+        "Dazhbog Patera",
+        "Jaszai Patera",
+        "Pillan Patera",
+        "Sacajawea Patera",
+        "Sachs Patera",
+    ]
+
+    assert _category_is_lexically_revealed("1967 in sports in Indiana", obvious_members)
+    assert _category_is_lexically_revealed(
+        "Galilean moons",
+        ["Callisto", "Europa", "Ganymede", "List of Galilean moons", "Io"],
+    )
+    assert not _category_is_lexically_revealed("Extraterrestrial volcanic calderas", inferential_members)

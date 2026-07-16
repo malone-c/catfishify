@@ -43,6 +43,17 @@ export interface WikiArticleData {
   alt_titles: string[]
 }
 
+export interface ReverseCategoryRound {
+  round_id: string
+  pages: string[]
+  member_count: number
+}
+
+export interface ReverseCategoryGuessResult {
+  correct: boolean
+  answer: string | null
+}
+
 export interface LeaderboardEntry {
   nickname: string
   score: number

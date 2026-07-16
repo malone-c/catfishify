@@ -1,9 +1,29 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { beforeEach, describe, expect, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import ArcadeRoutes from './ArcadeRoutes'
-import { arcadeModes } from './modes'
+
+const liveRound = {
+  round_id: 'opaque-round',
+  pages: [
+    'Compton–Belkovich Thorium Anomaly',
+    'Dazhbog Patera',
+    'Jaszai Patera',
+    'Pillan Patera',
+    'Sacajawea Patera',
+    'Sachs Patera',
+    'Theia Mons',
+  ],
+  member_count: 7,
+}
+
+function json(body: unknown, status = 200) {
+  return Promise.resolve(new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  }))
+}
 
 function renderArcade(path: string) {
   return render(
@@ -15,69 +35,75 @@ function renderArcade(path: string) {
   )
 }
 
-beforeEach(() => window.localStorage.clear())
+beforeEach(() => {
+  vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    if (url.endsWith('/arcade/reverse/round')) return json(liveRound)
+    if (url.endsWith('/arcade/reverse/check')) {
+      const body = JSON.parse(String(init?.body)) as { guess: string }
+      return json(body.guess === 'Extraterrestrial volcanic calderas'
+        ? { correct: true, answer: 'Extraterrestrial volcanic calderas' }
+        : { correct: false, answer: null })
+    }
+    if (url.endsWith('/arcade/reverse/reveal')) {
+      return json({ answer: 'Extraterrestrial volcanic calderas' })
+    }
+    return json({ detail: 'Unhandled test request' }, 500)
+  }))
+})
+
+afterEach(() => vi.unstubAllGlobals())
 
 describe('Arcade', () => {
-  test('lists every playable experiment on the hub', async () => {
+  test('retires the recognition-heavy prototypes from the hub', () => {
     renderArcade('/arcade')
 
-    expect(await screen.findByRole('heading', { name: 'Eight ways to get catfished.' })).toBeInTheDocument()
-    for (const mode of arcadeModes) {
-      expect(screen.getByRole('link', { name: new RegExp(mode.title) })).toHaveAttribute('href', mode.path)
-    }
+    expect(screen.getByRole('heading', { name: 'The arcade is being rebuilt around actual difficulty.' })).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: /Reverse Catfishing/ })).toHaveLength(2)
+    expect(screen.queryByText('Which Wiki?')).not.toBeInTheDocument()
+    expect(screen.queryByText('Nine Lives')).not.toBeInTheDocument()
   })
 
-  test.each([
-    ['/arcade/clue-ladder', 'Clue Ladder'],
-    ['/arcade/red-herring', 'Red Herring'],
-    ['/arcade/which-wiki', 'Which Wiki?'],
-    ['/arcade/school-of-fish', 'School of Fish'],
-    ['/arcade/wiki-pairs', 'Wiki Pairs'],
-    ['/arcade/nine-lives', 'Nine Lives'],
-    ['/arcade/daily-catch', 'Daily Catch'],
-    ['/arcade/reverse-catfishing', 'Reverse Catfishing'],
-  ])('renders %s as a standalone game page', async (path, heading) => {
-    renderArcade(path)
-    expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'All experiments' })).toHaveAttribute('href', '/arcade')
-  })
-
-  test('solves a Clue Ladder round early for the maximum value', async () => {
-    const user = userEvent.setup()
+  test('redirects retired game routes to the Arcade index', async () => {
     renderArcade('/arcade/clue-ladder')
-
-    await screen.findByRole('heading', { name: 'Clue Ladder' })
-    await user.click(screen.getByRole('button', { name: /Albert Einstein/ }))
-
-    expect(screen.getByText('Albert Einstein, caught.')).toBeInTheDocument()
-    expect(screen.getByText(/Solved for 5 cats/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Next ladder' })).toBeEnabled()
+    expect(await screen.findByRole('heading', { name: 'The arcade is being rebuilt around actual difficulty.' })).toBeInTheDocument()
   })
 
-  test('reveals the source of a Red Herring', async () => {
-    const user = userEvent.setup()
-    renderArcade('/arcade/red-herring')
-
-    await screen.findByRole('heading', { name: 'Red Herring' })
-    await user.click(screen.getByRole('button', { name: /Wireless pioneers/ }))
-
-    expect(screen.getByText('Herring hooked.')).toBeInTheDocument()
-    expect(screen.getByText(/belongs with Hedy Lamarr/)).toBeInTheDocument()
-  })
-
-  test('checks a verified small category in Reverse Catfishing', async () => {
-    const user = userEvent.setup()
+  test('renders the complete live page list with one free-text input', async () => {
     renderArcade('/arcade/reverse-catfishing')
 
-    await screen.findByRole('heading', { name: 'Reverse Catfishing' })
-    expect(screen.getByText('Callisto (moon)')).toBeInTheDocument()
-    expect(screen.getByText('Io (moon)')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /Galilean moons/ }))
+    expect(await screen.findByRole('heading', { name: '7 Wikipedia pages' })).toBeInTheDocument()
+    expect(screen.getByText('Compton–Belkovich Thorium Anomaly')).toBeInTheDocument()
+    expect(screen.getByText('Theia Mons')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Category name' })).toHaveFocus()
+    expect(screen.queryByRole('option')).not.toBeInTheDocument()
+  })
 
-    expect(screen.getByText('Category caught.')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Verify on Wikipedia ↗' })).toHaveAttribute(
-      'href',
-      'https://en.wikipedia.org/wiki/Category:Galilean_moons',
-    )
+  test('keeps incorrect free-text attempts and accepts the canonical category', async () => {
+    const user = userEvent.setup()
+    renderArcade('/arcade/reverse-catfishing')
+    const input = await screen.findByRole('textbox', { name: 'Category name' })
+
+    await user.type(input, 'Volcanoes on Venus')
+    await user.click(screen.getByRole('button', { name: 'Submit guess' }))
+    expect(await screen.findByText('Incorrect')).toBeInTheDocument()
+    expect(screen.getByText('Volcanoes on Venus')).toBeInTheDocument()
+    await waitFor(() => expect(input).toHaveFocus())
+
+    await user.type(input, 'Extraterrestrial volcanic calderas')
+    await user.click(screen.getByRole('button', { name: 'Submit guess' }))
+    expect(await screen.findByRole('heading', { name: 'Extraterrestrial volcanic calderas' })).toBeInTheDocument()
+    expect(screen.getByText('Correct in 2 attempts.')).toBeInTheDocument()
+  })
+
+  test('reveals only when the player explicitly ends the round', async () => {
+    const user = userEvent.setup()
+    renderArcade('/arcade/reverse-catfishing')
+    await screen.findByRole('textbox', { name: 'Category name' })
+
+    await user.click(screen.getByRole('button', { name: 'Reveal category and end round' }))
+
+    expect(await screen.findByRole('heading', { name: 'Extraterrestrial volcanic calderas' })).toBeInTheDocument()
+    expect(screen.getByText('Revealed after 0 attempts.')).toBeInTheDocument()
   })
 })

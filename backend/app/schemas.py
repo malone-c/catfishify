@@ -113,3 +113,43 @@ class RevealAnswerRequest(BaseModel):
 
 class RevealAnswerResult(BaseModel):
     wikipedia_title: str
+
+
+class ReverseCategoryRound(BaseModel):
+    round_id: str
+    pages: list[str]
+    member_count: int
+
+
+class ReverseCategoryGuess(BaseModel):
+    round_id: str = Field(min_length=1, max_length=200)
+    guess: str = Field(min_length=1, max_length=300)
+
+    @field_validator("round_id", "guess")
+    @classmethod
+    def reverse_values_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("value must not be blank")
+        return value
+
+
+class ReverseCategoryGuessResult(BaseModel):
+    correct: bool
+    answer: str | None = None
+
+
+class ReverseCategoryReveal(BaseModel):
+    round_id: str = Field(min_length=1, max_length=200)
+
+    @field_validator("round_id")
+    @classmethod
+    def round_id_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("round_id must not be blank")
+        return value
+
+
+class ReverseCategoryRevealResult(BaseModel):
+    answer: str
