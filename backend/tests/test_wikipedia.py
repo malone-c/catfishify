@@ -36,6 +36,16 @@ def test_search_articles_returns_empty_list_when_no_results():
     assert result == []
 
 
+def test_search_articles_uses_timeout_and_identifies_the_app():
+    mock_response = make_mock_response({"query": {"search": []}})
+    with patch("app.services.wikipedia.httpx.get", return_value=mock_response) as mock_get:
+        search_articles("einstein")
+
+    kwargs = mock_get.call_args.kwargs
+    assert kwargs["timeout"] == 10.0
+    assert kwargs["headers"]["User-Agent"].startswith("Catfishify/")
+
+
 def test_fetch_categories_strips_eponymous():
     mock_response = make_mock_response({
         "query": {

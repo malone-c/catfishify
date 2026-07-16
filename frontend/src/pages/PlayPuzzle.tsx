@@ -1,363 +1,459 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { api } from '../api'
+import { ApiError, api } from '../api'
+import { PageError, PageLoading } from '../components/PageState'
+import {
+  clearProgress,
+  createProgress,
+  emojiForAnswer,
+  formatDuration,
+  getNicknameCookie,
+  loadProgress,
+  saveProgress,
+  scoreAnswers,
+  setNicknameCookie,
+  type StoredProgress,
+} from '../lib/game'
 import type { AnswerDetail, PuzzleDetail } from '../types'
+import './PlayPuzzle.css'
 
-type GuessState = 'waiting' | 'checking' | 'correct' | 'wrong'
+type GuessState = 'waiting' | 'checking' | 'correct' | 'wrong' | 'error'
 
-interface StoredProgress {
-  answers: (AnswerDetail | null)[]
-  currentIndex: number
-  startTime: number
+interface RevealedAnswer {
+  title: string
+  outcome: 'half' | 'skipped'
 }
 
-function loadProgress(shortId: string): StoredProgress | null {
-  try {
-    const raw = localStorage.getItem(`catfishify-progress-${shortId}`)
-    return raw ? (JSON.parse(raw) as StoredProgress) : null
-  } catch {
-    return null
-  }
+function ArrowIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
 }
 
-function saveProgress(shortId: string, progress: StoredProgress) {
-  localStorage.setItem(`catfishify-progress-${shortId}`, JSON.stringify(progress))
-}
-
-function clearProgress(shortId: string) {
-  localStorage.removeItem(`catfishify-progress-${shortId}`)
-}
-
-function getNicknameCookie(): string {
-  const match = document.cookie.match(/(?:^|;\s*)catfishify-nickname=([^;]*)/)
-  return match ? decodeURIComponent(match[1]) : ''
-}
-
-function setNicknameCookie(nickname: string) {
-  const expires = new Date()
-  expires.setFullYear(expires.getFullYear() + 1)
-  document.cookie = `catfishify-nickname=${encodeURIComponent(nickname)}; expires=${expires.toUTCString()}; path=/`
-}
-
-function emojiForAnswer(a: AnswerDetail | null): string {
-  if (a === 'correct') return '🐈'
-  if (a === 'half') return '🐡'
-  return '🐟'
+function ShareIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <circle cx="15" cy="5" r="2.2" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="5" cy="10" r="2.2" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="15" cy="15" r="2.2" stroke="currentColor" strokeWidth="1.6" />
+      <path d="m7 9 5.9-3M7 11l5.9 3" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  )
 }
 
 export default function PlayPuzzle() {
   const { shortId } = useParams<{ shortId: string }>()
-
   const [puzzle, setPuzzle] = useState<PuzzleDetail | null>(null)
-  const [loadError, setLoadError] = useState<string | null>(null)
-
-  const [answers, setAnswers] = useState<(AnswerDetail | null)[]>([])
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [startTime, setStartTime] = useState(0)
-
+  const [progress, setProgress] = useState<StoredProgress | null>(null)
+  const [loadError, setLoadError] = useState<'missing' | 'network' | null>(null)
   const [guess, setGuess] = useState('')
   const [guessState, setGuessState] = useState<GuessState>('waiting')
-
+  const [revealedAnswer, setRevealedAnswer] = useState<RevealedAnswer | null>(null)
+  const [revealingAnswer, setRevealingAnswer] = useState(false)
+  const [revealError, setRevealError] = useState<string | null>(null)
   const [nickname, setNickname] = useState(getNicknameCookie)
   const [submittingResult, setSubmittingResult] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
-  const [copied, setCopied] = useState(false)
-
+  const [shareStatus, setShareStatus] = useState<'idle' | 'shared' | 'error'>('idle')
   const inputRef = useRef<HTMLInputElement>(null)
-
-  const isFinished = puzzle !== null && currentIndex >= puzzle.articles.length
+  const finishHeadingRef = useRef<HTMLHeadingElement>(null)
+  const shareTimeoutRef = useRef<number | undefined>(undefined)
 
   useEffect(() => {
     if (!shortId) return
-    api.getPuzzle(shortId)
-      .then(p => {
-        setPuzzle(p)
-        const stored = loadProgress(shortId)
-        if (stored && stored.answers.length === p.articles.length) {
-          setAnswers(stored.answers)
-          setCurrentIndex(stored.currentIndex)
-          setStartTime(stored.startTime)
-        } else {
-          const now = Date.now()
-          const fresh: StoredProgress = {
-            answers: Array(p.articles.length).fill(null),
-            currentIndex: 0,
-            startTime: now,
-          }
-          setAnswers(fresh.answers)
-          setCurrentIndex(0)
-          setStartTime(now)
-          saveProgress(shortId, fresh)
+    const controller = new AbortController()
+    api.getPuzzle(shortId, controller.signal)
+      .then(loadedPuzzle => {
+        const stored = loadProgress(shortId, loadedPuzzle.articles.length)
+        const nextProgress = stored ?? createProgress(loadedPuzzle.articles.length)
+        if (nextProgress.currentIndex === loadedPuzzle.articles.length && !nextProgress.finishedAt) {
+          nextProgress.finishedAt = Date.now()
         }
+        setPuzzle(loadedPuzzle)
+        setProgress(nextProgress)
+        saveProgress(shortId, nextProgress)
       })
-      .catch(() => setLoadError('Puzzle not found.'))
+      .catch(errorValue => {
+        if (errorValue instanceof DOMException && errorValue.name === 'AbortError') return
+        setLoadError(errorValue instanceof ApiError && errorValue.status === 404 ? 'missing' : 'network')
+      })
+    return () => controller.abort()
   }, [shortId])
 
   useEffect(() => {
-    if (!shortId || !puzzle || answers.length === 0) return
-    saveProgress(shortId, { answers, currentIndex, startTime })
-  }, [answers, currentIndex, startTime, shortId, puzzle])
+    if (!shortId || !progress) return
+    saveProgress(shortId, progress)
+  }, [progress, shortId])
+
+  const isFinished = Boolean(puzzle && progress && progress.currentIndex >= puzzle.articles.length)
 
   useEffect(() => {
-    if (!isFinished) inputRef.current?.focus()
-  }, [currentIndex, isFinished])
+    if (isFinished) finishHeadingRef.current?.focus()
+  }, [isFinished])
+
+  useEffect(() => {
+    if (!isFinished && guessState !== 'correct') inputRef.current?.focus()
+  }, [guessState, isFinished, progress?.currentIndex])
+
+  useEffect(() => () => window.clearTimeout(shareTimeoutRef.current), [])
 
   const advance = useCallback((outcome: AnswerDetail) => {
-    setAnswers(prev => {
-      const next = [...prev]
-      next[currentIndex] = outcome
-      return next
+    if (!puzzle) return
+    const completedAt = Date.now()
+    setProgress(previous => {
+      if (!previous) return previous
+      const answers = [...previous.answers]
+      answers[previous.currentIndex] = outcome
+      const currentIndex = Math.min(previous.currentIndex + 1, puzzle.articles.length)
+      return {
+        ...previous,
+        answers,
+        currentIndex,
+        finishedAt: currentIndex === puzzle.articles.length ? completedAt : undefined,
+      }
     })
-    setCurrentIndex(i => i + 1)
     setGuess('')
     setGuessState('waiting')
-  }, [currentIndex])
+    setRevealedAnswer(null)
+    setRevealError(null)
+    setRevealingAnswer(false)
+  }, [puzzle])
 
-  const handleCheck = async () => {
-    if (!shortId || !guess.trim() || guessState === 'checking') return
+  const handleCheck = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!shortId || !progress || !guess.trim() || guessState === 'checking' || revealedAnswer) return
     setGuessState('checking')
     try {
-      const { correct } = await api.checkAnswer(shortId, currentIndex, guess.trim())
+      const { correct } = await api.checkAnswer(shortId, progress.currentIndex, guess.trim())
       setGuessState(correct ? 'correct' : 'wrong')
     } catch {
-      setGuessState('wrong')
+      setGuessState('error')
     }
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') handleCheck()
+  const handleReveal = async (outcome: RevealedAnswer['outcome']) => {
+    if (!shortId || !progress || revealingAnswer) return
+    setRevealingAnswer(true)
+    setRevealError(null)
+    try {
+      const result = await api.revealAnswer(shortId, progress.currentIndex)
+      setRevealedAnswer({ title: result.wikipedia_title, outcome })
+    } catch {
+      setRevealError('We could not reveal the page. Your progress is safe—try again.')
+    } finally {
+      setRevealingAnswer(false)
+    }
   }
 
-  const handleSubmitResult = async () => {
-    if (!shortId || !nickname.trim() || submittingResult) return
+  const finalAnswers = useMemo(
+    () => progress?.answers.map(answer => answer ?? 'skipped') as AnswerDetail[] | undefined,
+    [progress?.answers],
+  )
+  const score = finalAnswers ? scoreAnswers(finalAnswers) : 0
+
+  const handleSubmitResult = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!shortId || !progress || !finalAnswers || !nickname.trim() || submittingResult) return
     setSubmittingResult(true)
     setSubmitError(null)
-    setNicknameCookie(nickname.trim())
-
-    const finalAnswers = answers.map(a => a ?? 'skipped') as AnswerDetail[]
-    const score = finalAnswers.reduce((sum, a) => {
-      if (a === 'correct') return sum + 1
-      if (a === 'half') return sum + 0.5
-      return sum
-    }, 0)
-    const timeTakenSecs = Math.floor((Date.now() - startTime) / 1000)
+    const cleanNickname = nickname.trim()
+    setNicknameCookie(cleanNickname)
 
     try {
       await api.submitResult(shortId, {
-        nickname: nickname.trim(),
+        nickname: cleanNickname,
         score,
-        time_taken_secs: timeTakenSecs,
+        time_taken_secs: Math.floor(((progress.finishedAt ?? progress.startedAt) - progress.startedAt) / 1000),
         answer_details: finalAnswers,
       })
       clearProgress(shortId)
       setSubmitted(true)
     } catch {
-      setSubmitError('Failed to submit. Please try again.')
+      setSubmitError('Your score is safe here, but we could not reach the leaderboard. Try again.')
       setSubmittingResult(false)
     }
   }
 
-  const handleShare = (emojiStr: string, score: number) => {
+  const handleShare = async () => {
+    if (!puzzle || !shortId || !finalAnswers) return
+    const emojiString = finalAnswers.map(emojiForAnswer).join('')
     const text = [
       'Catfishify 🐈',
-      `"${puzzle!.title}"`,
-      `${score} / ${puzzle!.articles.length}`,
+      `“${puzzle.title}”`,
+      `${score} / ${puzzle.articles.length}`,
       '',
-      emojiStr,
+      emojiString,
       '',
       `${window.location.origin}/p/${shortId}`,
     ].join('\n')
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `Catfishify: ${puzzle.title}`, text })
+      } else {
+        await navigator.clipboard.writeText(text)
+      }
+      setShareStatus('shared')
+    } catch (errorValue) {
+      if (errorValue instanceof DOMException && errorValue.name === 'AbortError') return
+      setShareStatus('error')
+    }
+    window.clearTimeout(shareTimeoutRef.current)
+    shareTimeoutRef.current = window.setTimeout(() => setShareStatus('idle'), 2500)
+  }
+
+  const handleRestart = () => {
+    if (!puzzle || !shortId) return
+    const fresh = createProgress(puzzle.articles.length)
+    setProgress(fresh)
+    saveProgress(shortId, fresh)
+    setGuess('')
+    setGuessState('waiting')
+    setRevealedAnswer(null)
+    setRevealingAnswer(false)
+    setRevealError(null)
+    setSubmitted(false)
+    setSubmittingResult(false)
+    setSubmitError(null)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   if (loadError) {
     return (
-      <main style={{ padding: '32px' }}>
-        <p role="alert">{loadError}</p>
-        <Link to="/">← Home</Link>
-      </main>
+      <PageError
+        title={loadError === 'missing' ? 'That puzzle slipped away' : 'We lost the trail'}
+        message={loadError === 'missing'
+          ? 'The link may be incomplete, or this puzzle no longer exists.'
+          : 'Catfishify could not load this puzzle. Check your connection and try again.'}
+        action={loadError === 'network'
+          ? <button className="button button--primary" type="button" onClick={() => window.location.reload()}>Try again</button>
+          : undefined}
+      />
     )
   }
 
-  if (!puzzle) return <main style={{ padding: '32px' }}><p>Loading…</p></main>
+  if (!puzzle || !progress) return <PageLoading label="Fetching the clues" />
 
-  // End screen
-  if (isFinished) {
-    const finalAnswers = answers.map(a => a ?? 'skipped') as AnswerDetail[]
-    const score = finalAnswers.reduce((sum, a) => {
-      if (a === 'correct') return sum + 1
-      if (a === 'half') return sum + 0.5
-      return sum
-    }, 0)
+  if (isFinished && finalAnswers) {
     const emojiString = finalAnswers.map(emojiForAnswer).join('')
-    const timeTakenSecs = Math.floor((Date.now() - startTime) / 1000)
-    const mins = Math.floor(timeTakenSecs / 60)
-    const secs = timeTakenSecs % 60
+    const timeTakenSeconds = Math.floor(((progress.finishedAt ?? progress.startedAt) - progress.startedAt) / 1000)
+    const correctCount = finalAnswers.filter(answer => answer === 'correct').length
+    const halfCount = finalAnswers.filter(answer => answer === 'half').length
 
     return (
-      <main style={{ padding: '0 32px', maxWidth: 520, margin: '0 auto', textAlign: 'center' }}>
-        <h1 style={{ marginTop: 48 }}>🐈 Finished!</h1>
-        <p style={{ fontSize: 24, margin: '8px 0' }}>
-          <strong>{score}</strong> / {puzzle.articles.length}
-        </p>
-        <p style={{ fontSize: 14, color: 'var(--text)', marginBottom: 24 }}>
-          {mins}m {secs.toString().padStart(2, '0')}s
-        </p>
-        <p style={{ fontSize: 28, letterSpacing: 4, marginBottom: 32 }}>{emojiString}</p>
+      <main className="finish-page">
+        <section className="finish-hero">
+          <span className="eyebrow">Puzzle complete</span>
+          <h1 ref={finishHeadingRef} tabIndex={-1}>{score === puzzle.articles.length ? 'Clean catch.' : score >= puzzle.articles.length / 2 ? 'Nicely fished.' : 'A slippery one.'}</h1>
+          <p>{puzzle.title}</p>
+        </section>
 
-        {!submitted ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
-            <label style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%', maxWidth: 300, textAlign: 'left' }}>
-              <span style={{ fontWeight: 500 }}>Nickname</span>
-              <input
-                value={nickname}
-                onChange={e => setNickname(e.target.value)}
-                placeholder="Enter a nickname"
-                maxLength={50}
-                style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 6, font: 'inherit' }}
-              />
-            </label>
-            {submitError && <p role="alert" style={{ color: 'red' }}>{submitError}</p>}
-            <button
-              onClick={handleSubmitResult}
-              disabled={!nickname.trim() || submittingResult}
-              style={{
-                padding: '10px 24px', background: 'var(--accent)', color: '#fff',
-                border: 'none', borderRadius: 6, cursor: nickname.trim() ? 'pointer' : 'not-allowed',
-                opacity: nickname.trim() ? 1 : 0.5, font: 'inherit', fontSize: 16,
-              }}
-            >
-              {submittingResult ? 'Submitting…' : 'Submit to leaderboard'}
-            </button>
+        <section className="score-card" aria-label={`Final score ${score} out of ${puzzle.articles.length}`}>
+          <div className="score-card__number">
+            <span>Your score</span>
+            <strong>{score}<small> / {puzzle.articles.length}</small></strong>
           </div>
-        ) : (
-          <p>✓ Score submitted!</p>
-        )}
+          <div className="score-card__details">
+            <div><strong>{correctCount}</strong><span>clean catches</span></div>
+            <div><strong>{halfCount}</strong><span>close calls</span></div>
+            <div><strong>{formatDuration(timeTakenSeconds)}</strong><span>on the clock</span></div>
+          </div>
+          <div className="score-card__emoji" aria-label="Answer results">{emojiString}</div>
+        </section>
 
-        <p style={{ marginTop: 24 }}>
-          <button
-            onClick={() => handleShare(emojiString, score)}
-            style={{
-              padding: '8px 20px', background: 'none', border: '1px solid var(--border)',
-              borderRadius: 6, cursor: 'pointer', font: 'inherit',
-            }}
-          >
-            {copied ? '✓ Copied!' : '📋 Share'}
-          </button>
-        </p>
-        <p style={{ marginTop: 16 }}>
-          <Link to={`/p/${shortId}/leaderboard`}>View leaderboard →</Link>
-        </p>
-        <p style={{ marginTop: 8 }}>
-          <Link to="/">← Home</Link>
-        </p>
+        <div className="finish-grid">
+          <section className="finish-panel finish-panel--leaderboard">
+            {!submitted ? (
+              <>
+                <span className="finish-panel__number">01</span>
+                <h2>Claim your place</h2>
+                <p>Add a nickname to join this puzzle&apos;s leaderboard.</p>
+                <form onSubmit={handleSubmitResult}>
+                  <label htmlFor="nickname">Nickname</label>
+                  <div className="finish-input-row">
+                    <input
+                      id="nickname"
+                      value={nickname}
+                      onChange={event => setNickname(event.target.value)}
+                      placeholder="Your nickname"
+                      maxLength={50}
+                      autoComplete="nickname"
+                    />
+                    <button className="button button--primary" type="submit" disabled={!nickname.trim() || submittingResult}>
+                      {submittingResult ? 'Submitting…' : 'Submit score'}
+                    </button>
+                  </div>
+                  {submitError && <p className="finish-error" role="alert">{submitError}</p>}
+                </form>
+              </>
+            ) : (
+              <div className="finish-success" role="status">
+                <span aria-hidden="true">✓</span>
+                <div>
+                  <h2>You&apos;re on the board</h2>
+                  <p>Your score was submitted as <strong>{nickname.trim()}</strong>.</p>
+                </div>
+                <Link className="button button--primary" to={`/p/${shortId}/leaderboard`}>View leaderboard</Link>
+              </div>
+            )}
+          </section>
+
+          <section className="finish-panel finish-panel--share">
+            <span className="finish-panel__number">02</span>
+            <h2>Pass it on</h2>
+            <p>Share the result without spoiling any answers.</p>
+            <button className="button button--secondary finish-share" type="button" onClick={() => void handleShare()}>
+              <span className={`finish-share__icon${shareStatus === 'shared' ? ' is-hidden' : ''}`}><ShareIcon /></span>
+              <span className={`finish-share__check${shareStatus === 'shared' ? ' is-visible' : ''}`} aria-hidden="true">✓</span>
+              {shareStatus === 'shared' ? 'Shared' : shareStatus === 'error' ? 'Could not share' : 'Share result'}
+            </button>
+          </section>
+        </div>
+
+        <div className="finish-actions">
+          <button className="button button--quiet" type="button" onClick={handleRestart}>Play this puzzle again</button>
+          <Link className="button button--secondary" to="/">Find another puzzle <ArrowIcon /></Link>
+        </div>
       </main>
     )
   }
 
-  // Active article
-  const article = puzzle.articles[currentIndex]
+  const article = puzzle.articles[progress.currentIndex]
 
   return (
-    <main style={{ padding: '0 32px', maxWidth: 640, margin: '0 auto', textAlign: 'left' }}>
-      <p style={{ marginTop: 24, color: 'var(--text)', fontSize: 14 }}>
-        <Link to="/">← Home</Link>
-      </p>
-      <h1>{puzzle.title}</h1>
-      {puzzle.description && <p style={{ marginBottom: 24 }}>{puzzle.description}</p>}
+    <main className="play-page">
+      <header className="play-heading">
+        <div>
+          <span className="eyebrow">Now playing</span>
+          <h1>{puzzle.title}</h1>
+          {puzzle.description && <p>{puzzle.description}</p>}
+        </div>
+        <Link className="button button--quiet" to={`/p/${shortId}/leaderboard`}>Leaderboard</Link>
+      </header>
 
-      <p style={{ color: 'var(--text)', fontSize: 14, marginBottom: 16 }}>
-        Article {currentIndex + 1} of {puzzle.articles.length}
-      </p>
+      <section className="game-board">
+        <div className="game-progress">
+          <div className="game-progress__label">
+            <span>Task {progress.currentIndex + 1}</span>
+            <span>{progress.currentIndex + 1} of {puzzle.articles.length}</span>
+          </div>
+          <ol className="game-progress__track" aria-label="Puzzle progress">
+            {progress.answers.map((answer, index) => (
+              <li
+                className={`${index === progress.currentIndex ? 'is-current' : ''}${index < progress.currentIndex ? ' is-complete' : ''}`}
+                key={index}
+                aria-current={index === progress.currentIndex ? 'step' : undefined}
+                aria-label={index < progress.currentIndex
+                  ? `Task ${index + 1}: ${answer === 'correct' ? 'correct' : answer === 'half' ? 'half point' : 'skipped'}`
+                  : index === progress.currentIndex ? `Task ${index + 1}: current` : `Task ${index + 1}: not started`}
+              >
+                {index < progress.currentIndex ? emojiForAnswer(answer) : index + 1}
+              </li>
+            ))}
+          </ol>
+        </div>
 
-      <div style={{ display: 'flex', gap: 6, marginBottom: 24 }}>
-        {answers.map((a, i) => (
-          <span key={i} style={{ fontSize: 20 }}>
-            {i < currentIndex ? emojiForAnswer(a) : i === currentIndex ? '⬜' : '⬛'}
-          </span>
-        ))}
-      </div>
-
-      <section style={{ marginBottom: 24 }}>
-        <h2>Categories</h2>
-        <ul style={{ listStyle: 'disc', paddingLeft: 24 }}>
-          {article.categories.map(c => (
-            <li key={c} style={{ marginBottom: 4 }}>{c}</li>
-          ))}
-        </ul>
-      </section>
-
-      {guessState !== 'correct' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <input
-            ref={inputRef}
-            value={guess}
-            onChange={e => setGuess(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Guess the Wikipedia article…"
-            disabled={guessState === 'checking'}
-            style={{ padding: '10px 14px', border: '1px solid var(--border)', borderRadius: 6, font: 'inherit', fontSize: 16 }}
-          />
-
-          {guessState === 'wrong' && (
-            <p role="alert" style={{ color: 'var(--text)', margin: 0 }}>
-              ✗ Not quite. Try again, claim a half point, or skip.
-            </p>
+        <div className="clue-panel">
+          <div className="clue-panel__heading">
+            <div>
+              <span>Wikipedia categories</span>
+              <h2>What page do these belong to?</h2>
+            </div>
+            <span className="clue-panel__count">{article.categories.length} clues</span>
+          </div>
+          {article.categories.length > 0 ? (
+            <ul className="category-grid">
+              {article.categories.map((category, index) => (
+                <li key={category}>
+                  <span>{String(index + 1).padStart(2, '0')}</span>
+                  {category}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="category-empty">
+              <span aria-hidden="true">?</span>
+              <p>This page has no usable categories. Take a wild guess or skip it.</p>
+            </div>
           )}
+        </div>
 
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button
-              onClick={handleCheck}
-              disabled={!guess.trim() || guessState === 'checking'}
-              style={{
-                padding: '8px 20px', background: 'var(--accent)', color: '#fff',
-                border: 'none', borderRadius: 6, cursor: guess.trim() ? 'pointer' : 'not-allowed',
-                opacity: guess.trim() ? 1 : 0.5, font: 'inherit',
+        <form className={`guess-panel guess-panel--${guessState}`} onSubmit={handleCheck}>
+          <label htmlFor="article-guess">Your answer</label>
+          <div className="guess-input-row">
+            <input
+              id="article-guess"
+              ref={inputRef}
+              value={guess}
+              onChange={event => {
+                setGuess(event.target.value)
+                if (guessState === 'wrong' || guessState === 'error') setGuessState('waiting')
               }}
-            >
-              {guessState === 'checking' ? 'Checking…' : 'Check'}
-            </button>
-
-            <button
-              onClick={() => advance('half')}
-              style={{ padding: '8px 20px', background: 'none', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', font: 'inherit' }}
-            >
-              🐡 Half point
-            </button>
-
-            <button
-              onClick={() => advance('skipped')}
-              style={{ padding: '8px 20px', background: 'none', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', font: 'inherit' }}
-            >
-              Skip
+              placeholder="Type the Wikipedia page title…"
+              disabled={guessState === 'checking' || guessState === 'correct' || Boolean(revealedAnswer) || revealingAnswer}
+              autoComplete="off"
+              spellCheck="false"
+            />
+            <button className="button button--primary" type="submit" disabled={!guess.trim() || guessState === 'checking' || guessState === 'correct'}>
+              {guessState === 'checking' ? 'Checking…' : 'Check answer'}
             </button>
           </div>
-        </div>
-      )}
 
-      {guessState === 'correct' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <p style={{ color: 'green', fontWeight: 500, margin: 0 }}>🐈 Correct!</p>
-          <button
-            onClick={() => advance('correct')}
-            style={{
-              padding: '8px 20px', background: 'var(--accent)', color: '#fff',
-              border: 'none', borderRadius: 6, cursor: 'pointer', font: 'inherit', alignSelf: 'flex-start',
-            }}
-          >
-            Next →
-          </button>
-        </div>
-      )}
+          <div className="guess-feedback" aria-live="polite">
+            {revealedAnswer ? (
+              <div className="guess-message guess-message--reveal">
+                <span aria-hidden="true">↗</span>
+                <div>
+                  <strong>The page was {revealedAnswer.title}</strong>
+                  <p>{revealedAnswer.outcome === 'half' ? 'Close call recorded for half a point.' : 'No points this time—one for the memory bank.'}</p>
+                </div>
+                <button className="button button--primary" type="button" onClick={() => advance(revealedAnswer.outcome)}>
+                  {progress.currentIndex === puzzle.articles.length - 1 ? 'See my score' : 'Next task'}
+                  <ArrowIcon />
+                </button>
+              </div>
+            ) : guessState === 'wrong' ? (
+              <div className="guess-message guess-message--wrong">
+                <span aria-hidden="true">×</span>
+                <div><strong>Not that one.</strong><p>Try another answer, take a close call, or move on.</p></div>
+              </div>
+            ) : guessState === 'error' ? (
+              <div className="guess-message guess-message--error" role="alert">
+                <span aria-hidden="true">!</span>
+                <div><strong>We could not check that answer.</strong><p>Your progress is safe. Check your connection and try again.</p></div>
+              </div>
+            ) : guessState === 'correct' ? (
+              <div className="guess-message guess-message--correct">
+                <span aria-hidden="true">✓</span>
+                <div><strong>Clean catch!</strong><p>That is the page.</p></div>
+                <button className="button button--primary" type="button" onClick={() => advance('correct')}>
+                  {progress.currentIndex === puzzle.articles.length - 1 ? 'See my score' : 'Next task'}
+                  <ArrowIcon />
+                </button>
+              </div>
+            ) : null}
+            {revealError && <p className="reveal-error" role="alert">{revealError}</p>}
+          </div>
 
-      {/* Navigate away without finishing - will resume from localStorage */}
-      <p style={{ marginTop: 32, fontSize: 14, color: 'var(--text)' }}>
-        Progress is saved automatically.
-      </p>
+          {guessState !== 'correct' && !revealedAnswer && (
+            <div className="guess-options">
+              {guessState === 'wrong' && (
+                <button className="button button--secondary" type="button" onClick={() => void handleReveal('half')} disabled={revealingAnswer}>
+                  {revealingAnswer ? 'Revealing…' : '🐡 I was close — ½ point'}
+                </button>
+              )}
+              <button className="button button--quiet" type="button" onClick={() => void handleReveal('skipped')} disabled={revealingAnswer}>
+                {revealingAnswer ? 'Revealing…' : 'Skip this task'}
+              </button>
+            </div>
+          )}
+        </form>
+      </section>
+
+      <p className="save-note"><span aria-hidden="true">✓</span> Progress saves automatically on this device.</p>
     </main>
   )
 }

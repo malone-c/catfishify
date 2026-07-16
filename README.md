@@ -2,6 +2,8 @@
 
 Guess the Wikipedia article from its categories. Create custom puzzles, share links with friends, and compete on leaderboards. Inspired by [catfishing.net](https://catfishing.net).
 
+Live at [catfishify.cmal.one](https://catfishify.cmal.one).
+
 The home page lists all puzzles ordered by popularity (number of completions).
 
 ---
@@ -48,7 +50,7 @@ Catfishify 🐈
 
 🐈🐡🐈🐈🐟
 
-catfishify.app/p/abc123
+catfishify.cmal.one/p/abc123
 ```
 
 ---
@@ -64,7 +66,7 @@ Per-puzzle, ranked by score then time. No accounts required.
 - **Backend:** FastAPI, SQLAlchemy, Alembic
 - **Frontend:** React, TypeScript, Vite
 - **Database:** PostgreSQL
-- **Hosting:** Railway
+- **Hosting:** Caddy behind a Cloudflare Tunnel on a supervised Mac mini
 
 ---
 
@@ -121,6 +123,8 @@ Alt titles come from Wikipedia's redirect graph.
 | `GET` | `/api/puzzles` | List all puzzles, ordered by completions desc |
 | `POST` | `/api/puzzles` | Create a puzzle |
 | `GET` | `/api/puzzles/{short_id}` | Get puzzle (titles stripped for players) |
+| `POST` | `/api/puzzles/{short_id}/check-answer` | Check a guess without exposing the title |
+| `POST` | `/api/puzzles/{short_id}/reveal-answer` | Reveal a skipped or conceded task |
 | `POST` | `/api/puzzles/{short_id}/results` | Submit result |
 | `GET` | `/api/puzzles/{short_id}/leaderboard` | Leaderboard |
 | `GET` | `/api/wikipedia/search?q=` | Autocomplete |
@@ -144,21 +148,30 @@ npm install && npm run dev
 
 The frontend dev server proxies `/api` to `localhost:8000`.
 
-## Deploy (Railway)
+## Verification
 
 ```bash
-railway login && railway init
-railway add --database postgresql
-railway up
+cd backend && uv run pytest -q
+cd ../frontend && npm run lint && npm test && npm run build && npm run test:e2e
 ```
 
-Migrations run on startup. FastAPI serves the compiled React build from `/`.
+GitHub Actions runs the backend, frontend, and desktop/mobile browser suites on every push and pull request.
+
+## Deploy (cmal.one mini)
+
+From the app clone on the host:
+
+```bash
+./deploy.sh
+```
+
+The script installs locked dependencies, runs all non-browser release checks, builds the frontend, restarts the launchd-supervised FastAPI service, and smoke-tests both the local service and the public Cloudflare route. Migrations run on startup. FastAPI serves the compiled React build from `/`.
 
 ### Env vars
 
 | Variable | Notes |
 |---|---|
-| `DATABASE_URL` | Auto-set by Railway |
+| `DATABASE_URL` | PostgreSQL connection URL |
 | `WIKIPEDIA_API_BASE` | Defaults to `https://en.wikipedia.org/w/api.php` |
 
 ---

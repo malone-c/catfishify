@@ -10,18 +10,37 @@ import type {
 
 const BASE = '/api'
 
+export class ApiError extends Error {
+  status: number
+  detail?: string
+
+  constructor(status: number, statusText: string, detail?: string) {
+    super(detail || `${status} ${statusText}`)
+    this.name = 'ApiError'
+    this.status = status
+    this.detail = detail
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
     ...init,
+    headers: {
+      Accept: 'application/json',
+      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+      ...init?.headers,
+    },
   })
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+  if (!res.ok) {
+    const payload = await res.json().catch(() => null) as { detail?: string } | null
+    throw new ApiError(res.status, res.statusText, payload?.detail)
+  }
   return res.json() as Promise<T>
 }
 
 export const api = {
-  listPuzzles: (): Promise<PuzzleSummary[]> =>
-    request('/puzzles'),
+  listPuzzles: (signal?: AbortSignal): Promise<PuzzleSummary[]> =>
+    request('/puzzles', { signal }),
 
   createPuzzle: (body: {
     title: string
@@ -30,8 +49,8 @@ export const api = {
   }): Promise<{ short_id: string }> =>
     request('/puzzles', { method: 'POST', body: JSON.stringify(body) }),
 
-  getPuzzle: (shortId: string): Promise<PuzzleDetail> =>
-    request(`/puzzles/${shortId}`),
+  getPuzzle: (shortId: string, signal?: AbortSignal): Promise<PuzzleDetail> =>
+    request(`/puzzles/${shortId}`, { signal }),
 
   checkAnswer: (
     shortId: string,
@@ -43,6 +62,15 @@ export const api = {
       body: JSON.stringify({ article_index: articleIndex, guess }),
     }),
 
+  revealAnswer: (
+    shortId: string,
+    articleIndex: number,
+  ): Promise<{ wikipedia_title: string }> =>
+    request(`/puzzles/${shortId}/reveal-answer`, {
+      method: 'POST',
+      body: JSON.stringify({ article_index: articleIndex }),
+    }),
+
   submitResult: (
     shortId: string,
     body: ResultCreate,
@@ -52,12 +80,12 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  getLeaderboard: (shortId: string): Promise<LeaderboardEntry[]> =>
-    request(`/puzzles/${shortId}/leaderboard`),
+  getLeaderboard: (shortId: string, signal?: AbortSignal): Promise<LeaderboardEntry[]> =>
+    request(`/puzzles/${shortId}/leaderboard`, { signal }),
 
-  searchWikipedia: (q: string): Promise<WikiSearchResult[]> =>
-    request(`/wikipedia/search?q=${encodeURIComponent(q)}`),
+  searchWikipedia: (q: string, signal?: AbortSignal): Promise<WikiSearchResult[]> =>
+    request(`/wikipedia/search?q=${encodeURIComponent(q)}`, { signal }),
 
-  getWikipediaArticle: (title: string): Promise<WikiArticleData> =>
-    request(`/wikipedia/article?title=${encodeURIComponent(title)}`),
+  getWikipediaArticle: (title: string, signal?: AbortSignal): Promise<WikiArticleData> =>
+    request(`/wikipedia/article?title=${encodeURIComponent(title)}`, { signal }),
 }

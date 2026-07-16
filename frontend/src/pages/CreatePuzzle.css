@@ -1,7 +1,7 @@
 .create-page {
   width: min(760px, calc(100% - 40px));
   margin: 0 auto;
-  padding: 28px 0 72px;
+  padding: 62px 0 72px;
   text-align: left;
 }
 
@@ -24,7 +24,7 @@
 }
 
 .create-header {
-  margin: 38px 0 40px;
+  margin: 0 0 40px;
 }
 
 .create-header .create-eyebrow {
@@ -540,6 +540,24 @@
   margin-top: 16px;
 }
 
+.create-preview-link {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 10px 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  transition-property: color;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+}
+
+.create-preview-link:hover {
+  color: var(--ink);
+}
+
 .create-button {
   min-height: 44px;
   padding: 10px 16px;
@@ -556,7 +574,7 @@
 
 .create-button:disabled {
   cursor: not-allowed;
-  opacity: 0.44;
+  opacity: 0.58;
 }
 
 .create-button-primary {
@@ -572,6 +590,13 @@
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.12),
     0 8px 18px -8px color-mix(in srgb, var(--accent) 88%, transparent);
+}
+
+.create-button-primary:disabled {
+  color: var(--brand-strong);
+  background: var(--accent-bg);
+  box-shadow: none;
+  opacity: 1;
 }
 
 .create-button-secondary {
@@ -691,7 +716,7 @@
 @media (max-width: 620px) {
   .create-page {
     width: min(100% - 28px, 760px);
-    padding-top: 18px;
+    padding-top: 42px;
   }
 
   .create-header {

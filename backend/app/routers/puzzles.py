@@ -15,6 +15,8 @@ from app.schemas import (
     PuzzleSummary,
     ResultCreate,
     ResultCreated,
+    RevealAnswerRequest,
+    RevealAnswerResult,
 )
 from app.services import answer_check
 from app.utils import generate_short_id
@@ -79,6 +81,14 @@ def submit_result(
     puzzle = db.query(Puzzle).filter_by(short_id=short_id).first()
     if not puzzle:
         raise HTTPException(status_code=404, detail="Puzzle not found")
+    if len(body.answer_details) != puzzle.size:
+        raise HTTPException(status_code=400, detail="Answer count does not match puzzle size")
+    expected_score = sum(
+        1 if answer == "correct" else 0.5 if answer == "half" else 0
+        for answer in body.answer_details
+    )
+    if body.score != expected_score:
+        raise HTTPException(status_code=400, detail="Score does not match answer details")
     result = Result(
         puzzle_id=puzzle.id,
         nickname=body.nickname,
@@ -127,3 +137,17 @@ def check_answer_endpoint(
         body.guess, article["wikipedia_title"], article["alt_titles"]
     )
     return AnswerCheckResult(correct=correct)
+
+
+@router.post("/puzzles/{short_id}/reveal-answer")
+def reveal_answer(
+    short_id: str, body: RevealAnswerRequest, db: Session = Depends(get_db)
+) -> RevealAnswerResult:
+    puzzle = db.query(Puzzle).filter_by(short_id=short_id).first()
+    if not puzzle:
+        raise HTTPException(status_code=404, detail="Puzzle not found")
+    if body.article_index < 0 or body.article_index >= len(puzzle.articles):
+        raise HTTPException(status_code=400, detail="Invalid article index")
+    return RevealAnswerResult(
+        wikipedia_title=puzzle.articles[body.article_index]["wikipedia_title"]
+    )

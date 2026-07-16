@@ -1,94 +1,157 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { api } from '../api'
+import { ApiError, api } from '../api'
+import { PageError, PageLoading } from '../components/PageState'
+import { formatDuration, getNicknameCookie } from '../lib/game'
 import type { LeaderboardEntry, PuzzleDetail } from '../types'
+import './Leaderboard.css'
+
+function Medal({ rank }: { rank: number }) {
+  if (rank > 3) return <span className="rank-number">{rank}</span>
+  return <span className={`rank-medal rank-medal--${rank}`} aria-label={`Rank ${rank}`}>{['🥇', '🥈', '🥉'][rank - 1]}</span>
+}
+
+function formatDate(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(date)
+}
 
 export default function Leaderboard() {
   const { shortId } = useParams<{ shortId: string }>()
-
   const [puzzle, setPuzzle] = useState<PuzzleDetail | null>(null)
   const [entries, setEntries] = useState<LeaderboardEntry[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  // Read nickname from cookie for row highlight
-  const match = document.cookie.match(/(?:^|;\s*)catfishify-nickname=([^;]*)/)
-  const currentNickname = match ? decodeURIComponent(match[1]) : ''
+  const [error, setError] = useState<'missing' | 'network' | null>(null)
+  const [requestVersion, setRequestVersion] = useState(0)
+  const currentNickname = getNicknameCookie()
 
   useEffect(() => {
     if (!shortId) return
-    Promise.all([api.getPuzzle(shortId), api.getLeaderboard(shortId)])
-      .then(([p, lb]) => {
-        setPuzzle(p)
-        setEntries(lb)
+    const controller = new AbortController()
+    Promise.all([
+      api.getPuzzle(shortId, controller.signal),
+      api.getLeaderboard(shortId, controller.signal),
+    ])
+      .then(([loadedPuzzle, leaderboard]) => {
+        setPuzzle(loadedPuzzle)
+        setEntries(leaderboard)
       })
-      .catch((e: Error) => {
-        if (e.message.startsWith('404')) setError('Puzzle not found.')
-        else setError('Failed to load leaderboard.')
+      .catch(errorValue => {
+        if (errorValue instanceof DOMException && errorValue.name === 'AbortError') return
+        setError(errorValue instanceof ApiError && errorValue.status === 404 ? 'missing' : 'network')
       })
-      .finally(() => setLoading(false))
-  }, [shortId])
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false)
+      })
+    return () => controller.abort()
+  }, [requestVersion, shortId])
 
-  if (loading) return <main style={{ padding: '32px' }}><p>Loading…</p></main>
+  const retry = () => {
+    setLoading(true)
+    setError(null)
+    setRequestVersion(version => version + 1)
+  }
 
-  if (error) {
+  if (loading) return <PageLoading label="Tallying the scores" />
+
+  if (error || !puzzle) {
     return (
-      <main style={{ padding: '32px' }}>
-        <p role="alert">{error}</p>
-        <Link to="/">← Home</Link>
-      </main>
+      <PageError
+        title={error === 'missing' ? 'No leaderboard here' : 'The scores are out of reach'}
+        message={error === 'missing'
+          ? 'This puzzle link may be incomplete or no longer available.'
+          : 'We could not load the leaderboard. Check your connection and try again.'}
+        action={error === 'network'
+          ? <button className="button button--primary" type="button" onClick={retry}>Try again</button>
+          : undefined}
+      />
     )
   }
 
   return (
-    <main style={{ padding: '0 32px', maxWidth: 640, margin: '0 auto' }}>
-      <p style={{ marginTop: 24 }}><Link to="/">← Home</Link></p>
-      <h1>{puzzle?.title} — Leaderboard</h1>
+    <main className="leaderboard-page">
+      <header className="leaderboard-header">
+        <div>
+          <span className="eyebrow">Leaderboard</span>
+          <h1>{puzzle.title}</h1>
+          <p>{entries.length === 0 ? 'The board is wide open.' : `${entries.length} ${entries.length === 1 ? 'player has' : 'players have'} finished this puzzle.`}</p>
+        </div>
+        <Link className="button button--primary" to={`/p/${shortId}`}>Play the puzzle <span aria-hidden="true">→</span></Link>
+      </header>
 
       {entries.length === 0 ? (
-        <p>No results yet. <Link to={`/p/${shortId}`}>Be the first to play!</Link></p>
+        <section className="leaderboard-empty">
+          <span className="leaderboard-empty__mark" aria-hidden="true">#1</span>
+          <h2>First place is waiting</h2>
+          <p>Complete the puzzle, submit your nickname, and put the first score on the board.</p>
+          <Link className="button button--primary" to={`/p/${shortId}`}>Take the first run</Link>
+        </section>
       ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 16 }}>
-          <thead>
-            <tr style={{ borderBottom: '2px solid var(--border)', textAlign: 'left' }}>
-              <th style={{ padding: '8px 12px', width: 40 }}>#</th>
-              <th style={{ padding: '8px 12px' }}>Nickname</th>
-              <th style={{ padding: '8px 12px', textAlign: 'right' }}>Score</th>
-              <th style={{ padding: '8px 12px', textAlign: 'right' }}>Time</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map((entry, i) => {
-              const isCurrentPlayer = currentNickname && entry.nickname === currentNickname
-              const mins = Math.floor(entry.time_taken_secs / 60)
-              const secs = entry.time_taken_secs % 60
+        <>
+          <section className={`podium podium--${Math.min(entries.length, 3)}`} aria-label="Top players">
+            {entries.slice(0, 3).map((entry, index) => {
+              const rank = index + 1
+              const isCurrentPlayer = Boolean(currentNickname && entry.nickname === currentNickname)
               return (
-                <tr
-                  key={i}
-                  style={{
-                    borderBottom: '1px solid var(--border)',
-                    background: isCurrentPlayer ? 'var(--accent-bg)' : undefined,
-                    fontWeight: isCurrentPlayer ? 600 : undefined,
-                  }}
-                >
-                  <td style={{ padding: '8px 12px', color: 'var(--text)' }}>{i + 1}</td>
-                  <td style={{ padding: '8px 12px' }}>{entry.nickname}</td>
-                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>
-                    {entry.score} / {puzzle?.size}
-                  </td>
-                  <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text)' }}>
-                    {mins}m {secs.toString().padStart(2, '0')}s
-                  </td>
-                </tr>
+                <article className={`podium-card podium-card--${rank}${isCurrentPlayer ? ' is-current' : ''}`} key={`${entry.nickname}-${entry.completed_at}-${rank}`}>
+                  <Medal rank={rank} />
+                  <span className="podium-card__place">{rank === 1 ? 'First place' : rank === 2 ? 'Second place' : 'Third place'}</span>
+                  <h2>{entry.nickname}</h2>
+                  {isCurrentPlayer && <span className="podium-card__you">You</span>}
+                  <strong>{entry.score}<small> / {puzzle.size}</small></strong>
+                  <span className="podium-card__time">{formatDuration(entry.time_taken_secs)}</span>
+                </article>
               )
             })}
-          </tbody>
-        </table>
+          </section>
+
+          <section className="standings" aria-labelledby="standings-title">
+            <div className="standings__heading">
+              <div>
+                <span className="eyebrow">All results</span>
+                <h2 id="standings-title">Full standings</h2>
+              </div>
+              <span>Score first, then fastest time</span>
+            </div>
+            <div className="standings__table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">Rank</th>
+                    <th scope="col">Player</th>
+                    <th scope="col">Completed</th>
+                    <th scope="col">Score</th>
+                    <th scope="col">Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {entries.map((entry, index) => {
+                    const isCurrentPlayer = Boolean(currentNickname && entry.nickname === currentNickname)
+                    return (
+                      <tr className={isCurrentPlayer ? 'is-current' : undefined} key={`${entry.nickname}-${entry.completed_at}-${index}`}>
+                        <td><Medal rank={index + 1} /></td>
+                        <th scope="row">
+                          {entry.nickname}
+                          {isCurrentPlayer && <span className="standings__you">You</span>}
+                        </th>
+                        <td>{formatDate(entry.completed_at)}</td>
+                        <td><strong>{entry.score}</strong> / {puzzle.size}</td>
+                        <td>{formatDuration(entry.time_taken_secs)}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </>
       )}
 
-      <p style={{ marginTop: 24 }}>
-        <Link to={`/p/${shortId}`}>← Play again</Link>
-      </p>
+      <div className="leaderboard-actions">
+        <Link className="button button--quiet" to="/">Browse more puzzles</Link>
+        <Link className="button button--secondary" to="/create">Build your own</Link>
+      </div>
     </main>
   )
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import type { ArticleInput, WikiArticleData, WikiSearchResult } from '../types'
 import './CreatePuzzle.css'
@@ -37,26 +37,30 @@ export default function CreatePuzzle() {
   const createButtonRef = useRef<HTMLButtonElement>(null)
   const searchRequestRef = useRef(0)
   const previewRequestRef = useRef(0)
+  const previewControllerRef = useRef<AbortController | null>(null)
 
   const atTaskLimit = articles.length === MAX_TASKS
+  const canSubmit = Boolean(title.trim() && articles.length > 0 && !isAddingTask && !submitting)
   const showResults = isAddingTask && searchQuery.trim().length > 1 && !preview && !loadingPreview
 
   useEffect(() => {
     if (!isAddingTask || preview || loadingPreview || searchQuery.trim().length < 2) return
 
     const requestId = ++searchRequestRef.current
+    const controller = new AbortController()
     const timeout = window.setTimeout(async () => {
       setSearching(true)
       setSearchFailed(false)
       try {
-        const results = await api.searchWikipedia(searchQuery.trim())
+        const results = await api.searchWikipedia(searchQuery.trim(), controller.signal)
         if (requestId === searchRequestRef.current) {
           setSearchResults(results)
           setActiveResultIndex(results.findIndex(
             result => !articles.some(article => article.wikipedia_title === result.title),
           ))
         }
-      } catch {
+      } catch (errorValue) {
+        if (errorValue instanceof DOMException && errorValue.name === 'AbortError') return
         if (requestId === searchRequestRef.current) {
           setSearchResults([])
           setActiveResultIndex(-1)
@@ -67,12 +71,22 @@ export default function CreatePuzzle() {
       }
     }, SEARCH_DELAY_MS)
 
-    return () => window.clearTimeout(timeout)
+    return () => {
+      window.clearTimeout(timeout)
+      controller.abort()
+    }
   }, [articles, isAddingTask, loadingPreview, preview, searchQuery])
+
+  useEffect(() => () => previewControllerRef.current?.abort(), [])
+
+  useEffect(() => {
+    if (isAddingTask && !preview && searchQuery === '') inputRef.current?.focus()
+  }, [articles.length, isAddingTask, preview, searchQuery])
 
   const resetTaskSearch = () => {
     searchRequestRef.current += 1
     previewRequestRef.current += 1
+    previewControllerRef.current?.abort()
     setSearchQuery('')
     setSearchResults([])
     setActiveResultIndex(-1)
@@ -86,6 +100,7 @@ export default function CreatePuzzle() {
   const handleSearchChange = (query: string) => {
     searchRequestRef.current += 1
     previewRequestRef.current += 1
+    previewControllerRef.current?.abort()
     setSearchQuery(query)
     setSearchResults([])
     setActiveResultIndex(-1)
@@ -100,6 +115,9 @@ export default function CreatePuzzle() {
     if (articles.some(article => article.wikipedia_title === wikiTitle)) return
 
     const requestId = ++previewRequestRef.current
+    previewControllerRef.current?.abort()
+    const controller = new AbortController()
+    previewControllerRef.current = controller
     setSearchQuery(wikiTitle)
     setSearchResults([])
     setActiveResultIndex(-1)
@@ -107,11 +125,12 @@ export default function CreatePuzzle() {
     setLoadingPreview(true)
     setTaskError(null)
     try {
-      const data = await api.getWikipediaArticle(wikiTitle)
+      const data = await api.getWikipediaArticle(wikiTitle, controller.signal)
       if (requestId === previewRequestRef.current) {
         setPreview({ wikipedia_title: wikiTitle, ...data })
       }
-    } catch {
+    } catch (errorValue) {
+      if (errorValue instanceof DOMException && errorValue.name === 'AbortError') return
       if (requestId === previewRequestRef.current) {
         setTaskError('We could not preview that Wikipedia page. Please choose another.')
       }
@@ -198,7 +217,7 @@ export default function CreatePuzzle() {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
-    if (!title.trim() || articles.length === 0 || submitting) return
+    if (!canSubmit) return
     setSubmitting(true)
     setFormError(null)
     try {
@@ -216,8 +235,6 @@ export default function CreatePuzzle() {
 
   return (
     <main className="create-page">
-      <Link className="create-back-link" to="/">← Home</Link>
-
       <header className="create-header">
         <p className="create-eyebrow">Puzzle builder</p>
         <h1>Create a puzzle</h1>
@@ -240,9 +257,13 @@ export default function CreatePuzzle() {
               <input
                 ref={titleRef}
                 value={title}
-                onChange={event => setTitle(event.target.value)}
+                onChange={event => {
+                  setTitle(event.target.value)
+                  setFormError(null)
+                }}
                 placeholder="e.g. Famous scientists"
                 autoComplete="off"
+                maxLength={100}
                 required
               />
             </label>
@@ -251,8 +272,12 @@ export default function CreatePuzzle() {
               <span>Description <span className="create-optional">Optional</span></span>
               <textarea
                 value={description}
-                onChange={event => setDescription(event.target.value)}
+                onChange={event => {
+                  setDescription(event.target.value)
+                  setFormError(null)
+                }}
                 placeholder="A short introduction to your puzzle"
+                maxLength={500}
                 rows={3}
               />
             </label>
@@ -405,6 +430,14 @@ export default function CreatePuzzle() {
                     <button className="create-button create-button-quiet" type="button" onClick={resetTaskSearch}>
                       Choose another
                     </button>
+                    <a
+                      className="create-preview-link"
+                      href={`https://en.wikipedia.org/wiki/${encodeURIComponent(preview.wikipedia_title.replaceAll(' ', '_'))}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      View on Wikipedia ↗
+                    </a>
                   </div>
                 </article>
               )}
@@ -444,13 +477,15 @@ export default function CreatePuzzle() {
               ? 'Add a title before creating your puzzle.'
               : articles.length === 0
                 ? 'Choose at least one Wikipedia page.'
-                : `${articles.length} ${articles.length === 1 ? 'task' : 'tasks'} will be included.`}
+                : isAddingTask
+                  ? 'Select “Done adding tasks” when your list is ready.'
+                  : `${articles.length} ${articles.length === 1 ? 'task' : 'tasks'} will be included.`}
           </p>
           <button
             ref={createButtonRef}
             className="create-button create-button-primary create-submit"
             type="submit"
-            disabled={!title.trim() || articles.length === 0 || submitting}
+            disabled={!canSubmit}
           >
             {submitting ? 'Creating puzzle…' : 'Create puzzle'}
           </button>

@@ -12,6 +12,13 @@ PUZZLE_PAYLOAD = {
 }
 
 
+def distinct_articles(count: int) -> list[dict]:
+    return [
+        {**ARTICLE, "wikipedia_title": f"Article {index + 1}"}
+        for index in range(count)
+    ]
+
+
 def test_create_puzzle_returns_201_with_short_id(client):
     response = client.post("/api/puzzles", json=PUZZLE_PAYLOAD)
     assert response.status_code == 201
@@ -35,14 +42,56 @@ def test_create_puzzle_rejects_missing_title(client):
     assert response.status_code == 422
 
 
+def test_create_puzzle_rejects_blank_title(client):
+    payload = {**PUZZLE_PAYLOAD, "title": "   "}
+    response = client.post("/api/puzzles", json=payload)
+    assert response.status_code == 422
+
+
+def test_create_puzzle_rejects_title_over_100_characters(client):
+    payload = {**PUZZLE_PAYLOAD, "title": "x" * 101}
+    response = client.post("/api/puzzles", json=payload)
+    assert response.status_code == 422
+
+
+def test_create_puzzle_rejects_description_over_500_characters(client):
+    payload = {**PUZZLE_PAYLOAD, "description": "x" * 501}
+    response = client.post("/api/puzzles", json=payload)
+    assert response.status_code == 422
+
+
 def test_create_puzzle_accepts_up_to_ten_articles(client):
-    payload = {**PUZZLE_PAYLOAD, "articles": [ARTICLE] * 10}
+    payload = {**PUZZLE_PAYLOAD, "articles": distinct_articles(10)}
     response = client.post("/api/puzzles", json=payload)
     assert response.status_code == 201
 
 
 def test_create_puzzle_rejects_more_than_ten_articles(client):
     payload = {**PUZZLE_PAYLOAD, "articles": [ARTICLE] * 11}
+    response = client.post("/api/puzzles", json=payload)
+    assert response.status_code == 422
+
+
+def test_create_puzzle_rejects_duplicate_articles(client):
+    payload = {**PUZZLE_PAYLOAD, "articles": [ARTICLE, {**ARTICLE, "wikipedia_title": "albert einstein"}]}
+    response = client.post("/api/puzzles", json=payload)
+    assert response.status_code == 422
+
+
+def test_create_puzzle_rejects_blank_article_title(client):
+    payload = {**PUZZLE_PAYLOAD, "articles": [{**ARTICLE, "wikipedia_title": "   "}]}
+    response = client.post("/api/puzzles", json=payload)
+    assert response.status_code == 422
+
+
+def test_create_puzzle_rejects_more_than_500_categories_for_an_article(client):
+    payload = {**PUZZLE_PAYLOAD, "articles": [{**ARTICLE, "categories": ["category"] * 501}]}
+    response = client.post("/api/puzzles", json=payload)
+    assert response.status_code == 422
+
+
+def test_create_puzzle_rejects_more_than_500_alt_titles_for_an_article(client):
+    payload = {**PUZZLE_PAYLOAD, "articles": [{**ARTICLE, "alt_titles": ["alias"] * 501}]}
     response = client.post("/api/puzzles", json=payload)
     assert response.status_code == 422
 
@@ -109,6 +158,37 @@ def test_submit_result_404_for_unknown_puzzle(client):
     assert response.status_code == 404
 
 
+def test_submit_result_rejects_answer_count_that_does_not_match_puzzle(client):
+    r = client.post("/api/puzzles", json=PUZZLE_PAYLOAD)
+    short_id = r.json()["short_id"]
+    response = client.post(f"/api/puzzles/{short_id}/results", json={
+        **RESULT_PAYLOAD,
+        "answer_details": ["correct", "skipped"],
+    })
+    assert response.status_code == 400
+
+
+def test_submit_result_rejects_score_that_does_not_match_answers(client):
+    r = client.post("/api/puzzles", json=PUZZLE_PAYLOAD)
+    short_id = r.json()["short_id"]
+    response = client.post(f"/api/puzzles/{short_id}/results", json={
+        **RESULT_PAYLOAD,
+        "score": 1,
+        "answer_details": ["skipped"],
+    })
+    assert response.status_code == 400
+
+
+def test_submit_result_rejects_blank_nickname(client):
+    r = client.post("/api/puzzles", json=PUZZLE_PAYLOAD)
+    short_id = r.json()["short_id"]
+    response = client.post(f"/api/puzzles/{short_id}/results", json={
+        **RESULT_PAYLOAD,
+        "nickname": "   ",
+    })
+    assert response.status_code == 422
+
+
 def test_list_puzzles_completions_count_increments_on_result_submit(client):
     r = client.post("/api/puzzles", json=PUZZLE_PAYLOAD)
     short_id = r.json()["short_id"]
@@ -162,7 +242,7 @@ def test_leaderboard_entry_has_expected_fields(client):
 
 
 def test_leaderboard_ordered_score_desc_then_time_asc(client):
-    r = client.post("/api/puzzles", json={"title": "Q", "size": 3, "articles": [ARTICLE] * 3})
+    r = client.post("/api/puzzles", json={"title": "Q", "size": 3, "articles": distinct_articles(3)})
     short_id = r.json()["short_id"]
     # Submit three results with distinct score/time combinations
     client.post(f"/api/puzzles/{short_id}/results", json={
@@ -240,5 +320,46 @@ def test_check_answer_400_for_invalid_article_index(client):
     response = client.post(
         f"/api/puzzles/{short_id}/check-answer",
         json={"article_index": 99, "guess": "anything"},
+    )
+    assert response.status_code == 400
+
+
+def test_check_answer_rejects_blank_guess(client):
+    r = client.post("/api/puzzles", json=PUZZLE_PAYLOAD)
+    short_id = r.json()["short_id"]
+    response = client.post(
+        f"/api/puzzles/{short_id}/check-answer",
+        json={"article_index": 0, "guess": "   "},
+    )
+    assert response.status_code == 422
+
+
+def test_check_answer_rejects_guess_over_300_characters(client):
+    r = client.post("/api/puzzles", json=PUZZLE_PAYLOAD)
+    short_id = r.json()["short_id"]
+    response = client.post(
+        f"/api/puzzles/{short_id}/check-answer",
+        json={"article_index": 0, "guess": "x" * 301},
+    )
+    assert response.status_code == 422
+
+
+def test_reveal_answer_returns_canonical_wikipedia_title(client):
+    r = client.post("/api/puzzles", json=PUZZLE_PAYLOAD)
+    short_id = r.json()["short_id"]
+    response = client.post(
+        f"/api/puzzles/{short_id}/reveal-answer",
+        json={"article_index": 0},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"wikipedia_title": "Albert Einstein"}
+
+
+def test_reveal_answer_rejects_invalid_article_index(client):
+    r = client.post("/api/puzzles", json=PUZZLE_PAYLOAD)
+    short_id = r.json()["short_id"]
+    response = client.post(
+        f"/api/puzzles/{short_id}/reveal-answer",
+        json={"article_index": 99},
     )
     assert response.status_code == 400
