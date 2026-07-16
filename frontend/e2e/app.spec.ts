@@ -5,7 +5,21 @@ const puzzle = {
   title: 'Creatures of the deep',
   description: 'Strange lives below the sunlight zone',
   size: 1,
-  articles: [{ categories: ['Marine biology', 'Bioluminescent organisms'] }],
+  articles: [{ categories: [
+    '1931 sculptures',
+    'Art Deco sculptures and memorials',
+    'Buildings and structures completed in 1931',
+    'Colossal statues in Brazil',
+    'Colossal statues of Jesus',
+    'Concrete sculptures in Brazil',
+    'Monuments and memorials completed in the 1930s',
+    'Monuments and memorials in Rio de Janeiro (city)',
+    'National heritage sites of Rio de Janeiro (state)',
+    'Outdoor sculptures in Brazil',
+    'Stone sculptures in Brazil',
+    'Vandalized works of art in Brazil',
+    'World record holders',
+  ] }],
 }
 
 const leaderboard = [
@@ -89,6 +103,12 @@ test('builds a dynamic one-page puzzle from Wikipedia search', async ({ page }) 
 
 test('finishes a puzzle, submits a score, and renders the standings', async ({ page }, testInfo) => {
   await page.goto(`/p/${puzzle.short_id}`)
+  const categoryList = page.getByRole('list', { name: 'Wikipedia categories' })
+  await expect(categoryList.getByRole('listitem')).toHaveCount(13)
+  const categoryListHeight = await categoryList.evaluate(element => element.getBoundingClientRect().height)
+  expect(categoryListHeight).toBeLessThanOrEqual(testInfo.project.name === 'mobile' ? 420 : 240)
+  await page.screenshot({ path: testInfo.outputPath('play-screen.png'), fullPage: true })
+
   await page.getByLabel('Your answer').fill('Anglerfish')
   await page.getByRole('button', { name: 'Check answer' }).click()
   await expect(page.getByText('Correct.')).toBeVisible()

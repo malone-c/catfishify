@@ -358,19 +358,15 @@ export default function PlayPuzzle() {
 
         <div className="clue-panel">
           <div className="clue-panel__heading">
-            <div>
-              <span>Wikipedia categories</span>
-              <h2>Guess the Wikipedia article</h2>
-            </div>
-            <span className="clue-panel__count">{article.categories.length} clues</span>
+            <h2>Guess the article from its categories</h2>
+            <span className="clue-panel__count">
+              {article.categories.length} {article.categories.length === 1 ? 'category' : 'categories'}
+            </span>
           </div>
           {article.categories.length > 0 ? (
-            <ul className="category-grid">
-              {article.categories.map((category, index) => (
-                <li key={category}>
-                  <span>{String(index + 1).padStart(2, '0')}</span>
-                  {category}
-                </li>
+            <ul className="category-list" aria-label="Wikipedia categories">
+              {article.categories.map(category => (
+                <li key={category}>{category}</li>
               ))}
             </ul>
           ) : (
