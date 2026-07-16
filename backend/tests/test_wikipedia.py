@@ -9,6 +9,7 @@ from app.services.wikipedia import (
     fetch_alt_titles,
     fetch_categories,
     fetch_category_members,
+    search_categories,
     search_articles,
 )
 
@@ -61,6 +62,47 @@ def test_search_articles_uses_timeout_and_identifies_the_app():
     kwargs = mock_get.call_args.kwargs
     assert kwargs["timeout"] == 10.0
     assert kwargs["headers"]["User-Agent"].startswith("Catfishify/")
+
+
+def test_search_categories_uses_category_namespace_and_strips_prefix():
+    mock_response = make_mock_response({
+        "query": {
+            "pages": [
+                {
+                    "title": "Category:Extraterrestrial volcanoes",
+                    "index": 2,
+                    "categoryinfo": {"pages": 6, "subcats": 5},
+                },
+                {
+                    "title": "Category:Extraterrestrial volcanic calderas",
+                    "index": 1,
+                    "categoryinfo": {"pages": 7, "subcats": 0},
+                },
+            ],
+            "search": [
+                {
+                    "title": "Category:Extraterrestrial volcanic calderas",
+                    "snippet": "Volcanic features beyond Earth",
+                },
+                {
+                    "title": "Category:Calderas of Io",
+                    "snippet": "Large volcanic depressions",
+                },
+            ]
+        }
+    })
+    with patch("app.services.wikipedia.httpx.get", return_value=mock_response) as mock_get:
+        result = search_categories("volcanic calderas")
+
+    assert result == [
+        {"title": "Extraterrestrial volcanic calderas", "snippet": "7 direct pages · 0 subcategories"},
+        {"title": "Extraterrestrial volcanoes", "snippet": "6 direct pages · 5 subcategories"},
+        {"title": "Calderas of Io", "snippet": "Large volcanic depressions"},
+    ]
+    params = mock_get.call_args.kwargs["params"]
+    assert params["generator"] == "prefixsearch"
+    assert params["gpsnamespace"] == 14
+    assert params["srnamespace"] == 14
 
 
 def test_fetch_categories_strips_eponymous():

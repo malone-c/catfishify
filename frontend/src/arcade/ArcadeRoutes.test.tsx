@@ -38,6 +38,12 @@ function renderArcade(path: string) {
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
+    if (url.includes('/wikipedia/category-search?')) {
+      return json([{
+        title: 'Extraterrestrial volcanic calderas',
+        snippet: 'Volcanic calderas on worlds beyond Earth.',
+      }])
+    }
     if (url.endsWith('/arcade/reverse/round')) return json(liveRound)
     if (url.endsWith('/arcade/reverse/check')) {
       const body = JSON.parse(String(init?.body)) as { guess: string }
@@ -75,14 +81,14 @@ describe('Arcade', () => {
     expect(await screen.findByRole('heading', { name: '7 Wikipedia pages' })).toBeInTheDocument()
     expect(screen.getByText('Compton–Belkovich Thorium Anomaly')).toBeInTheDocument()
     expect(screen.getByText('Theia Mons')).toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: 'Category name' })).toHaveFocus()
+    expect(screen.getByRole('combobox', { name: 'Category name' })).toHaveFocus()
     expect(screen.queryByRole('option')).not.toBeInTheDocument()
   })
 
   test('keeps incorrect free-text attempts and accepts the canonical category', async () => {
     const user = userEvent.setup()
     renderArcade('/arcade/reverse-catfishing')
-    const input = await screen.findByRole('textbox', { name: 'Category name' })
+    const input = await screen.findByRole('combobox', { name: 'Category name' })
 
     await user.type(input, 'Volcanoes on Venus')
     await user.click(screen.getByRole('button', { name: 'Submit guess' }))
@@ -96,10 +102,26 @@ describe('Arcade', () => {
     expect(screen.getByText('Correct in 2 attempts.')).toBeInTheDocument()
   })
 
+  test('searches live Wikipedia categories and supports keyboard selection', async () => {
+    const user = userEvent.setup()
+    renderArcade('/arcade/reverse-catfishing')
+    const input = await screen.findByRole('combobox', { name: 'Category name' })
+
+    await user.type(input, 'extraterrestrial volca')
+    expect(await screen.findByRole('option', { name: /Extraterrestrial volcanic calderas/ })).toBeInTheDocument()
+
+    await user.keyboard('{Enter}')
+    expect(input).toHaveValue('Extraterrestrial volcanic calderas')
+    expect(screen.queryByRole('option')).not.toBeInTheDocument()
+
+    await user.keyboard('{Enter}')
+    expect(await screen.findByRole('heading', { name: 'Extraterrestrial volcanic calderas' })).toBeInTheDocument()
+  })
+
   test('reveals only when the player explicitly ends the round', async () => {
     const user = userEvent.setup()
     renderArcade('/arcade/reverse-catfishing')
-    await screen.findByRole('textbox', { name: 'Category name' })
+    await screen.findByRole('combobox', { name: 'Category name' })
 
     await user.click(screen.getByRole('button', { name: 'Reveal category and end round' }))
 

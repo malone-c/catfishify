@@ -37,6 +37,51 @@ def search_articles(query: str) -> list[dict]:
     ]
 
 
+def search_categories(query: str) -> list[dict]:
+    """Return live Wikipedia category-title matches for an autocomplete query."""
+    search_query = re.sub(r"^\s*category\s*:\s*", "", query, flags=re.IGNORECASE).strip() or query
+    response = _get({
+        "action": "query",
+        "generator": "prefixsearch",
+        "gpssearch": search_query,
+        "gpsnamespace": 14,
+        "gpslimit": 10,
+        "prop": "categoryinfo",
+        "list": "search",
+        "srsearch": search_query,
+        "srnamespace": 14,
+        "srlimit": 10,
+        "format": "json",
+        "formatversion": 2,
+    })
+    response.raise_for_status()
+    query_data = response.json().get("query", {})
+    results = []
+    seen: set[str] = set()
+
+    for page in sorted(query_data.get("pages", []), key=lambda item: item.get("index", 999)):
+        title = page["title"].removeprefix("Category:")
+        info = page.get("categoryinfo", {})
+        page_count = info.get("pages", 0)
+        subcategory_count = info.get("subcats", 0)
+        page_label = "page" if page_count == 1 else "pages"
+        subcategory_label = "subcategory" if subcategory_count == 1 else "subcategories"
+        results.append({
+            "title": title,
+            "snippet": f"{page_count} direct {page_label} · {subcategory_count} {subcategory_label}",
+        })
+        seen.add(title.casefold())
+
+    for result in query_data.get("search", []):
+        title = result["title"].removeprefix("Category:")
+        if title.casefold() in seen:
+            continue
+        results.append({"title": title, "snippet": result["snippet"]})
+        seen.add(title.casefold())
+
+    return results[:10]
+
+
 def fetch_categories(title: str) -> list[str]:
     """Returns non-hidden, non-eponymous categories for a Wikipedia article."""
     response = _get({

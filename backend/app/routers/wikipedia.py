@@ -26,6 +26,16 @@ def search(
         raise HTTPException(status_code=502, detail="Wikipedia search is unavailable") from error
 
 
+@router.get("/wikipedia/category-search")
+def category_search(
+    q: Annotated[str, Query(min_length=2, max_length=100, pattern=r".*\S.*")],
+) -> list[dict]:
+    try:
+        return wiki_service.search_categories(q)
+    except httpx.HTTPError as error:
+        raise HTTPException(status_code=502, detail="Wikipedia category search is unavailable") from error
+
+
 @router.get("/wikipedia/article")
 def article(
     title: Annotated[str, Query(min_length=1, max_length=300, pattern=r".*\S.*")],

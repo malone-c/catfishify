@@ -21,7 +21,7 @@ test('production serves the Arcade and plays Reverse Catfishing', async ({ page 
   expect(await pageRows.count()).toBeGreaterThanOrEqual(5)
   expect(await pageRows.count()).toBeLessThanOrEqual(20)
 
-  await page.getByRole('textbox', { name: 'Category name' }).fill('not a wikipedia category 99118')
+  await page.getByRole('combobox', { name: 'Category name' }).fill('not a wikipedia category 99118')
   await page.getByRole('button', { name: 'Submit guess' }).click()
   await expect(page.getByText('Incorrect', { exact: true })).toBeVisible()
 

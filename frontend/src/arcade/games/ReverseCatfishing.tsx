@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { api, ApiError } from '../../api'
+import WikipediaAutocomplete from '../../components/WikipediaAutocomplete'
 import type { ReverseCategoryRound } from '../../types'
 import { GameFrame } from '../GameFrame'
 
@@ -151,21 +152,21 @@ export default function ReverseCatfishing() {
                   <form onSubmit={submitGuess}>
                     <label htmlFor="reverse-category-guess">Category name</label>
                     <div className="reverse-live-input-row">
-                      <input
+                      <WikipediaAutocomplete
                         id="reverse-category-guess"
                         ref={inputRef}
                         value={guess}
+                        disabled={checking}
                         maxLength={300}
-                        autoComplete="off"
-                        spellCheck="false"
                         placeholder="Type the Wikipedia category"
-                        onChange={event => setGuess(event.target.value)}
+                        search={api.searchWikipediaCategories}
+                        onValueChange={setGuess}
                       />
                       <button className="button button--primary" disabled={!guess.trim() || checking} type="submit">
                         {checking ? 'Checking…' : 'Submit guess'}
                       </button>
                     </div>
-                    <p>“Category:” is optional. There are no hints or suggested completions.</p>
+                    <p>Suggestions are live Wikipedia categories. “Category:” is optional and free text remains accepted.</p>
                   </form>
 
                   <div className="reverse-live-attempts" aria-live="polite">

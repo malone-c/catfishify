@@ -19,6 +19,10 @@ function json(route: Route, body: unknown, status = 200) {
 }
 
 async function mockReverseApi(page: Page) {
+  await page.route('**/api/wikipedia/category-search**', route => json(route, [{
+    title: 'Extraterrestrial volcanic calderas',
+    snippet: 'Volcanic calderas on worlds beyond Earth.',
+  }]))
   await page.route('**/api/arcade/reverse/**', route => {
     const request = route.request()
     const pathname = new URL(request.url()).pathname
@@ -50,13 +54,17 @@ test('plays Reverse Catfishing through repeated free-text guesses', async ({ pag
   await expect(page.getByText('Compton–Belkovich Thorium Anomaly')).toBeVisible()
   await expect(page.getByText('Theia Mons')).toBeVisible()
 
-  const input = page.getByRole('textbox', { name: 'Category name' })
+  const input = page.getByRole('combobox', { name: 'Category name' })
   await expect(input).toBeFocused()
   await input.fill('Volcanoes on Venus')
   await page.getByRole('button', { name: 'Submit guess' }).click()
   await expect(page.getByText('Incorrect')).toBeVisible()
 
-  await input.fill('Extraterrestrial volcanic calderas')
+  await input.fill('extraterrestrial volca')
+  const suggestion = page.getByRole('option', { name: /Extraterrestrial volcanic calderas/ })
+  await expect(suggestion).toBeVisible()
+  await suggestion.click()
+  await expect(input).toHaveValue('Extraterrestrial volcanic calderas')
   await page.getByRole('button', { name: 'Submit guess' }).click()
   await expect(page.getByRole('heading', { name: 'Extraterrestrial volcanic calderas' })).toBeVisible()
   await expect(page.getByText('Correct in 2 attempts.')).toBeVisible()

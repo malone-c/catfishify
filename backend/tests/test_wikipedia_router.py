@@ -24,6 +24,23 @@ def test_wikipedia_search_returns_502_when_wikipedia_is_unavailable(client):
     assert response.status_code == 502
 
 
+def test_wikipedia_category_search_proxies_to_category_service(client):
+    results = [{"title": "Extraterrestrial volcanic calderas", "snippet": "Volcanic features"}]
+    with patch("app.routers.wikipedia.wiki_service.search_categories", return_value=results) as mock:
+        response = client.get("/api/wikipedia/category-search?q=volcanic+calderas")
+
+    assert response.status_code == 200
+    assert response.json() == results
+    mock.assert_called_once_with("volcanic calderas")
+
+
+def test_wikipedia_category_search_returns_502_when_wikipedia_is_unavailable(client):
+    with patch("app.routers.wikipedia.wiki_service.search_categories") as mock:
+        mock.side_effect = httpx.TimeoutException("timed out")
+        response = client.get("/api/wikipedia/category-search?q=volcanic+calderas")
+    assert response.status_code == 502
+
+
 def test_wikipedia_article_proxies_to_service(client):
     with patch("app.routers.wikipedia.wiki_service.fetch_categories") as mock_cats, \
          patch("app.routers.wikipedia.wiki_service.fetch_alt_titles") as mock_alts:

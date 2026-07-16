@@ -15,7 +15,9 @@ interface WikipediaAutocompleteProps {
   placeholder: string
   disabled?: boolean
   autoFocus?: boolean
+  maxLength?: number
   excludedTitles?: readonly string[]
+  search?: (query: string, signal?: AbortSignal) => Promise<WikiSearchResult[]>
 }
 
 type SearchStatus = 'idle' | 'loading' | 'success' | 'error'
@@ -34,7 +36,9 @@ const WikipediaAutocomplete = forwardRef<HTMLInputElement, WikipediaAutocomplete
     placeholder,
     disabled = false,
     autoFocus = false,
+    maxLength,
     excludedTitles = NO_EXCLUDED_TITLES,
+    search = api.searchWikipedia,
   }, ref) {
     const [results, setResults] = useState<WikiSearchResult[]>([])
     const [activeResultIndex, setActiveResultIndex] = useState(-1)
@@ -68,7 +72,7 @@ const WikipediaAutocomplete = forwardRef<HTMLInputElement, WikipediaAutocomplete
 
       const timeout = window.setTimeout(async () => {
         try {
-          const nextResults = await api.searchWikipedia(query, controller.signal)
+          const nextResults = await search(query, controller.signal)
           if (requestId === requestRef.current) {
             setResults(nextResults)
             setStatus('success')
@@ -86,7 +90,7 @@ const WikipediaAutocomplete = forwardRef<HTMLInputElement, WikipediaAutocomplete
         window.clearTimeout(timeout)
         controller.abort()
       }
-    }, [disabled, dismissedQuery, query, value])
+    }, [disabled, dismissedQuery, query, search, value])
 
     useEffect(() => {
       setActiveResultIndex(currentIndex => {
@@ -156,6 +160,7 @@ const WikipediaAutocomplete = forwardRef<HTMLInputElement, WikipediaAutocomplete
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             disabled={disabled}
+            maxLength={maxLength}
             autoComplete="off"
             autoCapitalize="none"
             spellCheck="false"

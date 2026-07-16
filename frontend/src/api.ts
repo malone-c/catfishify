@@ -88,6 +88,9 @@ export const api = {
   searchWikipedia: (q: string, signal?: AbortSignal): Promise<WikiSearchResult[]> =>
     request(`/wikipedia/search?q=${encodeURIComponent(q)}`, { signal }),
 
+  searchWikipediaCategories: (q: string, signal?: AbortSignal): Promise<WikiSearchResult[]> =>
+    request(`/wikipedia/category-search?q=${encodeURIComponent(q)}`, { signal }),
+
   getWikipediaArticle: (title: string, signal?: AbortSignal): Promise<WikiArticleData> =>
     request(`/wikipedia/article?title=${encodeURIComponent(title)}`, { signal }),
 
